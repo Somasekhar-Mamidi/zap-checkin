@@ -44,7 +44,7 @@ const handler = async (req: Request): Promise<Response> => {
     
     // Send email using Resend
     const emailResponse = await resend.emails.send({
-      from: "Event QR Codes <onboarding@resend.dev>",
+      from: "Event QR Codes <mamidisomusekhar@gmail.com>",
       to: [attendee.email],
       subject: `Your Event QR Code - ${attendee.name}`,
       html: `
