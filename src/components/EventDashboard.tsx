@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { ReportsView } from "./ReportsView";
 import { QRGenerator } from "./QRGenerator";
 import { LogsView, LogEntry } from "./LogsView";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface Attendee {
   id: string;
@@ -22,47 +23,65 @@ export interface Attendee {
 }
 
 const EventDashboard = () => {
-  const [attendees, setAttendees] = useState<Attendee[]>([
-    {
-      id: "1",
-      name: "John Doe",
-      email: "john@example.com",
-      phone: "+1234567890",
-      checkedIn: true,
-      checkedInAt: new Date(),
-      qrCode: "EVT-001-JOHN"
-    },
-    {
-      id: "2",
-      name: "Jane Smith",
-      email: "jane@example.com",
-      phone: "+1234567891",
-      checkedIn: false,
-      qrCode: "EVT-002-JANE"
-    },
-    {
-      id: "3",
-      name: "Mike Johnson",
-      email: "mike@example.com",
-      phone: "+1234567892",
-      checkedIn: true,
-      checkedInAt: new Date(),
-      qrCode: "EVT-003-MIKE"
-    }
-  ]);
-
+  const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [activeTab, setActiveTab] = useState("overview");
+  const [isLoading, setIsLoading] = useState(true);
   const [logs, setLogs] = useState<LogEntry[]>([
     {
       id: "1",
       timestamp: new Date(),
       type: 'system',
       action: 'System initialized',
-      details: 'Event dashboard started with 3 pre-registered attendees',
+      details: 'Event dashboard started',
       status: 'success'
     }
   ]);
   const { toast } = useToast();
+
+  // Load attendees from database
+  const loadAttendees = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('attendees')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error loading attendees:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load attendees",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const formattedAttendees: Attendee[] = data.map(attendee => ({
+        id: attendee.id,
+        name: attendee.name,
+        email: attendee.email,
+        phone: attendee.phone || '',
+        checkedIn: attendee.checked_in,
+        checkedInAt: attendee.checked_in_at ? new Date(attendee.checked_in_at) : undefined,
+        qrCode: attendee.qr_code || undefined
+      }));
+
+      setAttendees(formattedAttendees);
+    } catch (error) {
+      console.error('Error loading attendees:', error);
+      toast({
+        title: "Error", 
+        description: "Failed to load attendees",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAttendees();
+  }, []);
 
   const addLog = (log: Omit<LogEntry, 'id' | 'timestamp'>) => {
     const newLog: LogEntry = {
@@ -80,62 +99,157 @@ const EventDashboard = () => {
     checkInRate: Math.round((attendees.filter(a => a.checkedIn).length / attendees.length) * 100)
   };
 
-  const addAttendee = (attendee: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>) => {
-    const newAttendee: Attendee = {
-      ...attendee,
-      id: Date.now().toString(),
-      checkedIn: false,
-      qrCode: `EVT-${Date.now()}-${attendee.name.split(' ')[0].toUpperCase()}`
-    };
-    setAttendees([...attendees, newAttendee]);
+  const addAttendee = async (attendee: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>) => {
+    const qrCode = `EVT-${Date.now()}-${attendee.name.split(' ')[0].toUpperCase()}`;
     
-    // Log the registration
-    addLog({
-      type: 'registration',
-      action: 'New attendee registered',
-      user: attendee.name,
-      email: attendee.email,
-      details: `QR Code: ${newAttendee.qrCode}`,
-      status: 'success'
-    });
-  };
+    try {
+      const { data, error } = await supabase
+        .from('attendees')
+        .insert({
+          name: attendee.name,
+          email: attendee.email,
+          phone: attendee.phone,
+          qr_code: qrCode
+        })
+        .select()
+        .single();
 
-  const addBulkAttendees = (newAttendees: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>[]) => {
-    const attendeesWithIds: Attendee[] = newAttendees.map((attendee, index) => ({
-      ...attendee,
-      id: (Date.now() + index).toString(),
-      checkedIn: false,
-      qrCode: `EVT-${Date.now() + index}-${attendee.name.split(' ')[0].toUpperCase()}`
-    }));
-    setAttendees([...attendees, ...attendeesWithIds]);
-    
-    // Log the bulk registration
-    addLog({
-      type: 'registration',
-      action: 'Bulk attendees registered',
-      details: `${newAttendees.length} attendees added via CSV upload`,
-      status: 'success'
-    });
-  };
+      if (error) {
+        console.error('Error adding attendee:', error);
+        toast({
+          title: "Error",
+          description: "Failed to add attendee",
+          variant: "destructive"
+        });
+        return;
+      }
 
-  const checkInAttendee = (qrCode: string) => {
-    const attendee = attendees.find(a => a.qrCode === qrCode);
-    if (attendee) {
-      setAttendees(attendees.map(a => 
-        a.qrCode === qrCode 
-          ? { ...a, checkedIn: true, checkedInAt: new Date() }
-          : a
-      ));
+      // Reload attendees to get the latest data
+      await loadAttendees();
       
-      // Log the check-in
+      // Log the registration
       addLog({
-        type: 'checkin',
-        action: 'Attendee checked in',
+        type: 'registration',
+        action: 'New attendee registered',
         user: attendee.name,
         email: attendee.email,
         details: `QR Code: ${qrCode}`,
         status: 'success'
       });
+
+      toast({
+        title: "Success",
+        description: `${attendee.name} has been registered`,
+      });
+    } catch (error) {
+      console.error('Error adding attendee:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add attendee",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const addBulkAttendees = async (newAttendees: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>[]) => {
+    try {
+      const attendeesToInsert = newAttendees.map((attendee, index) => ({
+        name: attendee.name,
+        email: attendee.email,
+        phone: attendee.phone,
+        qr_code: `EVT-${Date.now() + index}-${attendee.name.split(' ')[0].toUpperCase()}`
+      }));
+
+      const { data, error } = await supabase
+        .from('attendees')
+        .insert(attendeesToInsert)
+        .select();
+
+      if (error) {
+        console.error('Error adding bulk attendees:', error);
+        toast({
+          title: "Error",
+          description: "Failed to add attendees",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Reload attendees to get the latest data
+      await loadAttendees();
+      
+      // Log the bulk registration
+      addLog({
+        type: 'registration',
+        action: 'Bulk attendees registered',
+        details: `${newAttendees.length} attendees added via CSV upload`,
+        status: 'success'
+      });
+
+      toast({
+        title: "Success",
+        description: `${newAttendees.length} attendees have been registered`,
+      });
+    } catch (error) {
+      console.error('Error adding bulk attendees:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add attendees",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const checkInAttendee = async (qrCode: string) => {
+    const attendee = attendees.find(a => a.qrCode === qrCode);
+    
+    if (attendee) {
+      try {
+        const { data, error } = await supabase
+          .from('attendees')
+          .update({
+            checked_in: true,
+            checked_in_at: new Date().toISOString()
+          })
+          .eq('qr_code', qrCode)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error checking in attendee:', error);
+          toast({
+            title: "Error",
+            description: "Failed to check in attendee",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        // Reload attendees to get the latest data
+        await loadAttendees();
+        
+        // Log the check-in
+        addLog({
+          type: 'checkin',
+          action: 'Attendee checked in',
+          user: attendee.name,
+          email: attendee.email,
+          details: `QR Code: ${qrCode}`,
+          status: 'success'
+        });
+
+        toast({
+          title: "Check-In Successful",
+          description: `${attendee.name} has been checked in`,
+        });
+      } catch (error) {
+        console.error('Error checking in attendee:', error);
+        toast({
+          title: "Error",
+          description: "Failed to check in attendee",
+          variant: "destructive"
+        });
+      }
     } else {
       // Log failed check-in attempt
       addLog({
@@ -199,6 +313,17 @@ const EventDashboard = () => {
             Manage your event attendees with QR code check-ins
           </p>
         </div>
+
+        {isLoading ? (
+          <Card className="shadow-elegant">
+            <CardContent className="flex items-center justify-center py-16">
+              <div className="text-center space-y-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                <p className="text-muted-foreground">Loading attendees...</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-6 lg:w-fit lg:grid-cols-6">
@@ -339,6 +464,7 @@ const EventDashboard = () => {
             />
           </TabsContent>
         </Tabs>
+        )}
       </div>
     </div>
   );

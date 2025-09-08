@@ -14,7 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      attendees: {
+        Row: {
+          checked_in: boolean
+          checked_in_at: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string
+          phone: string | null
+          qr_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          checked_in?: boolean
+          checked_in_at?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          phone?: string | null
+          qr_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          checked_in?: boolean
+          checked_in_at?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          qr_code?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
