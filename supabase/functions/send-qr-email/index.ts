@@ -74,7 +74,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (emailResponse.error) {
       console.error('Resend API error:', emailResponse.error);
-      throw new Error(`Resend API error: ${emailResponse.error.message || 'Unknown error'}`);
+      
+      // Handle specific Resend errors with helpful messages
+      if (emailResponse.error.message?.includes('verify a domain')) {
+        throw new Error('Email domain not verified. Please verify your domain at resend.com/domains or use your verified email address.');
+      }
+      
+      throw new Error(`Resend API error: ${emailResponse.error.message || JSON.stringify(emailResponse.error)}`);
     }
 
     console.log('Email sent successfully. Email ID:', emailResponse.data?.id);
