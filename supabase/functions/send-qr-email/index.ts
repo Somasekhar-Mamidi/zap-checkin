@@ -44,7 +44,7 @@ const handler = async (req: Request): Promise<Response> => {
     
     // Send email using Resend
     const emailResponse = await resend.emails.send({
-      from: "Event QR Codes <mamidisomusekhar@gmail.com>",
+      from: "Event QR Codes <onboarding@resend.dev>",
       to: [attendee.email],
       subject: `Your Event QR Code - ${attendee.name}`,
       html: `
@@ -76,8 +76,12 @@ const handler = async (req: Request): Promise<Response> => {
       console.error('Resend API error:', emailResponse.error);
       
       // Handle specific Resend errors with helpful messages
-      if (emailResponse.error.message?.includes('verify a domain')) {
-        throw new Error('Email domain not verified. Please verify your domain at resend.com/domains or use your verified email address.');
+      if (emailResponse.error.message?.includes('verify a domain') || emailResponse.error.message?.includes('domain is not verified')) {
+        throw new Error('Domain not verified. With the test domain, you can only send emails to your own verified Resend account email. To send to other recipients, verify your domain at resend.com/domains.');
+      }
+      
+      if (emailResponse.error.message?.includes('testing emails to your own email')) {
+        throw new Error('With the test domain, you can only send emails to your own verified Resend account email address. To send to other recipients, verify a custom domain at resend.com/domains.');
       }
       
       throw new Error(`Resend API error: ${emailResponse.error.message || JSON.stringify(emailResponse.error)}`);
