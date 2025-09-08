@@ -103,11 +103,55 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees }
     event.target.value = '';
   };
 
-  const handleSendQR = (attendee: Attendee) => {
-    toast({
-      title: "QR Code Sent!",
-      description: `QR code sent to ${attendee.name} via email and WhatsApp`,
-    });
+  const handleSendQR = async (attendee: Attendee) => {
+    if (!attendee.qrCode) {
+      toast({
+        title: "Error",
+        description: "QR code not available for this attendee",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Generate QR code image data
+      const QRCode = (await import("qrcode")).default;
+      const qrImageData = await QRCode.toDataURL(attendee.qrCode, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#262883',
+          light: '#FFFFFF'
+        }
+      });
+
+      const { supabase } = await import("@/integrations/supabase/client");
+      
+      const { data, error } = await supabase.functions.invoke('send-qr-email', {
+        body: {
+          attendee: {
+            name: attendee.name,
+            email: attendee.email,
+            qrCode: attendee.qrCode
+          },
+          qrImageData
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "QR Code Sent!",
+        description: `QR code sent to ${attendee.name} via email`,
+      });
+    } catch (error) {
+      console.error('Failed to send QR code:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send QR code email",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
