@@ -326,30 +326,30 @@ const EventDashboard = () => {
         ) : (
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 lg:w-fit lg:grid-cols-6">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
-              Overview
+              <span className="hidden sm:inline">Overview</span>
             </TabsTrigger>
             <TabsTrigger value="attendees" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              Attendees
+              <span className="hidden sm:inline">Attendees</span>
             </TabsTrigger>
             <TabsTrigger value="qr-codes" className="flex items-center gap-2">
               <QrCode className="w-4 h-4" />
-              QR Codes
+              <span className="hidden sm:inline">QR Codes</span>
             </TabsTrigger>
             <TabsTrigger value="checkin" className="flex items-center gap-2">
               <Scan className="w-4 h-4" />
-              Check-In
+              <span className="hidden sm:inline">Check-In</span>
             </TabsTrigger>
             <TabsTrigger value="reports" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
-              Reports
+              <span className="hidden sm:inline">Reports</span>
             </TabsTrigger>
             <TabsTrigger value="logs" className="flex items-center gap-2">
               <Activity className="w-4 h-4" />
-              Logs
+              <span className="hidden sm:inline">Logs</span>
             </TabsTrigger>
           </TabsList>
 
