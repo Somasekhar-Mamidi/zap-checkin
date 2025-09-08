@@ -29,12 +29,18 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`Sending QR code email to ${attendee.name} (${attendee.email})`);
 
     // Check if Resend API key is configured
-    if (!Deno.env.get('RESEND_API_KEY')) {
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY not found in environment variables');
       throw new Error('Resend API key not configured');
     }
     
+    console.log('Resend API key found, length:', resendApiKey.length);
+    
     // Convert base64 QR code to attachment
     const base64Data = qrImageData.split(',')[1];
+    
+    console.log('Attempting to send email via Resend...');
     
     // Send email using Resend
     const emailResponse = await resend.emails.send({
@@ -64,13 +70,21 @@ const handler = async (req: Request): Promise<Response> => {
       ]
     });
 
-    console.log('Email sent successfully:', emailResponse);
+    console.log('Resend API response:', JSON.stringify(emailResponse, null, 2));
+
+    if (emailResponse.error) {
+      console.error('Resend API error:', emailResponse.error);
+      throw new Error(`Resend API error: ${emailResponse.error.message || 'Unknown error'}`);
+    }
+
+    console.log('Email sent successfully. Email ID:', emailResponse.data?.id);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: `QR code email sent successfully to ${attendee.name}`,
-        emailId: emailResponse.data?.id
+        emailId: emailResponse.data?.id,
+        resendResponse: emailResponse
       }),
       {
         status: 200,
