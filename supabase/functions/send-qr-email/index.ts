@@ -1,4 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { Resend } from "npm:resend@2.0.0";
+
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,62 +28,49 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Sending QR code email to ${attendee.name} (${attendee.email})`);
 
-    // Get Gmail API credentials
-    const clientId = Deno.env.get('GMAIL_CLIENT_ID');
-    const clientSecret = Deno.env.get('GMAIL_CLIENT_SECRET');
-
-    if (!clientId || !clientSecret) {
-      throw new Error('Gmail API credentials not configured');
+    // Check if Resend API key is configured
+    if (!Deno.env.get('RESEND_API_KEY')) {
+      throw new Error('Resend API key not configured');
     }
-
-    // For now, we'll use a simple email service approach
-    // In production, you'd implement full OAuth flow for user's Gmail account
     
     // Convert base64 QR code to attachment
     const base64Data = qrImageData.split(',')[1];
     
-    // Create email content
-    const emailContent = `
-Subject: Your Event QR Code - ${attendee.name}
-To: ${attendee.email}
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="boundary123"
+    // Send email using Resend
+    const emailResponse = await resend.emails.send({
+      from: "Event QR Codes <onboarding@resend.dev>",
+      to: [attendee.email],
+      subject: `Your Event QR Code - ${attendee.name}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #262883;">Hello ${attendee.name}!</h2>
+          <p>Here's your QR code for the event. Please save this image and present it at check-in.</p>
+          <div style="text-align: center; margin: 20px 0;">
+            <img src="cid:qr-code" alt="Your QR Code" style="border: 2px solid #262883; border-radius: 8px;" />
+          </div>
+          <p>Your unique QR code: <strong style="background: #f5f5f5; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${attendee.qrCode}</strong></p>
+          <p>We look forward to seeing you at the event!</p>
+          <br>
+          <p style="color: #666;">Best regards,<br>Event Team</p>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: `qr-code-${attendee.name.replace(/\s+/g, '-')}.png`,
+          content: base64Data,
+          content_type: 'image/png',
+          disposition: 'attachment'
+        }
+      ]
+    });
 
---boundary123
-Content-Type: text/html; charset=UTF-8
-
-<html>
-<body>
-  <h2>Hello ${attendee.name}!</h2>
-  <p>Here's your QR code for the event. Please save this image and present it at check-in.</p>
-  <p>Your unique QR code: <strong>${attendee.qrCode}</strong></p>
-  <p>We look forward to seeing you at the event!</p>
-  <br>
-  <p>Best regards,<br>Event Team</p>
-</body>
-</html>
-
---boundary123
-Content-Type: image/png
-Content-Disposition: attachment; filename="qr-code-${attendee.name.replace(/\s+/g, '-')}.png"
-Content-Transfer-Encoding: base64
-
-${base64Data}
---boundary123--
-`;
-
-    // For demonstration, we'll log the email content
-    // In production, you'd use Gmail API to actually send the email
-    console.log('Email content prepared for:', attendee.email);
-    console.log('QR Code:', attendee.qrCode);
-
-    // Simulate successful email sending
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log('Email sent successfully:', emailResponse);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `QR code email sent successfully to ${attendee.name}` 
+        message: `QR code email sent successfully to ${attendee.name}`,
+        emailId: emailResponse.data?.id
       }),
       {
         status: 200,
