@@ -56,21 +56,65 @@ export const CheckInScanner = ({ attendees, onCheckIn }: CheckInScannerProps) =>
     }
   };
 
-  const startScanning = () => {
-    setIsScanning(true);
+  const requestCameraPermission = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      // Stop the stream immediately as we just needed to check permissions
+      stream.getTracks().forEach(track => track.stop());
+      return true;
+    } catch (error) {
+      console.error("Camera permission denied:", error);
+      setScannerError("Camera permission denied. Please allow camera access and try again.");
+      return false;
+    }
+  };
+
+  const startScanning = async () => {
     setScannerError("");
     
-    scannerRef.current = new Html5QrcodeScanner(
-      "qr-reader",
-      {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0,
-      },
-      false
-    );
+    // Check if camera is available
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setScannerError("Camera not available. Your browser or device doesn't support camera access.");
+      return;
+    }
 
-    scannerRef.current.render(handleScanSuccess, handleScanError);
+    // Request camera permission first
+    const hasPermission = await requestCameraPermission();
+    if (!hasPermission) {
+      return;
+    }
+
+    setIsScanning(true);
+    
+    try {
+      scannerRef.current = new Html5QrcodeScanner(
+        "qr-reader",
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0,
+          showTorchButtonIfSupported: true,
+          showZoomSliderIfSupported: true,
+          defaultZoomValueIfSupported: 2,
+        },
+        false
+      );
+
+      scannerRef.current.render(handleScanSuccess, (error) => {
+        // Only show meaningful errors
+        if (error.includes("Permission denied") || error.includes("NotAllowedError")) {
+          setScannerError("Camera permission denied. Please allow camera access in your browser settings.");
+        } else if (error.includes("NotFoundError") || error.includes("No camera found")) {
+          setScannerError("No camera found. Please ensure your device has a camera.");
+        } else if (!error.includes("No QR code found") && !error.includes("QR code parse error")) {
+          console.error("Scanner error:", error);
+        }
+      });
+    } catch (error) {
+      console.error("Failed to start scanner:", error);
+      setScannerError("Failed to initialize camera scanner. Please try again.");
+      setIsScanning(false);
+    }
   };
 
   const stopScanning = () => {
@@ -121,48 +165,82 @@ export const CheckInScanner = ({ attendees, onCheckIn }: CheckInScannerProps) =>
               QR Code Scanner
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-center">
-              <div className="bg-accent/20 rounded-lg p-6 mb-4">
-                <div id="qr-reader" className={isScanning ? "" : "hidden"}></div>
+            <CardContent className="space-y-4">
+              <div className="text-center">
+                <div className="bg-accent/20 rounded-lg p-6 mb-4">
+                  <div id="qr-reader" className={isScanning ? "" : "hidden"}></div>
+                  {!isScanning && (
+                    <div className="flex flex-col items-center space-y-4">
+                      <Camera className="w-16 h-16 text-muted-foreground" />
+                      <p className="text-muted-foreground">
+                        Click "Start Scanner" to begin scanning QR codes with your camera
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Make sure to allow camera permissions when prompted
+                      </p>
+                    </div>
+                  )}
+                </div>
+                
+                {scannerError && (
+                  <Alert className="mb-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      {scannerError}
+                      {scannerError.includes("permission") && (
+                        <div className="mt-2 text-sm">
+                          <p>To fix this:</p>
+                          <ul className="list-disc list-inside mt-1 space-y-1">
+                            <li>Click the camera icon in your browser's address bar</li>
+                            <li>Select "Allow" for camera access</li>
+                            <li>Refresh the page and try again</li>
+                          </ul>
+                        </div>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                  <Button
+                    onClick={isScanning ? stopScanning : startScanning}
+                    className={isScanning 
+                      ? "bg-destructive hover:bg-destructive/90" 
+                      : "bg-gradient-primary hover:shadow-glow transition-all duration-300"
+                    }
+                  >
+                    {isScanning ? (
+                      <>
+                        <CameraOff className="w-4 h-4 mr-2" />
+                        Stop Scanner
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="w-4 h-4 mr-2" />
+                        Start Scanner
+                      </>
+                    )}
+                  </Button>
+                  
+                  {!isScanning && (
+                    <Button
+                      onClick={requestCameraPermission}
+                      variant="outline"
+                      className="text-sm"
+                    >
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      Request Camera Permissions
+                    </Button>
+                  )}
+                </div>
+                
                 {!isScanning && (
-                  <div className="flex flex-col items-center space-y-4">
-                    <Camera className="w-16 h-16 text-muted-foreground" />
-                    <p className="text-muted-foreground">
-                      Click the button below to start scanning QR codes
-                    </p>
-                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Having trouble? Try the manual entry option below
+                  </p>
                 )}
               </div>
-              
-              {scannerError && (
-                <Alert className="mb-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{scannerError}</AlertDescription>
-                </Alert>
-              )}
-
-              <Button
-                onClick={isScanning ? stopScanning : startScanning}
-                className={isScanning 
-                  ? "bg-destructive hover:bg-destructive/90" 
-                  : "bg-gradient-primary hover:shadow-glow transition-all duration-300"
-                }
-              >
-                {isScanning ? (
-                  <>
-                    <CameraOff className="w-4 h-4 mr-2" />
-                    Stop Scanner
-                  </>
-                ) : (
-                  <>
-                    <Camera className="w-4 h-4 mr-2" />
-                    Start Scanner
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
+            </CardContent>
         </Card>
 
         {/* Manual Entry & Stats */}
