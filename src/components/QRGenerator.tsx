@@ -7,12 +7,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import QRCode from "qrcode";
 import { useToast } from "@/hooks/use-toast";
 import type { Attendee } from "./EventDashboard";
+import type { LogEntry } from "./LogsView";
 
 interface QRGeneratorProps {
   attendees: Attendee[];
+  onLog?: (log: Omit<LogEntry, 'id' | 'timestamp'>) => void;
 }
 
-export const QRGenerator = ({ attendees }: QRGeneratorProps) => {
+export const QRGenerator = ({ attendees, onLog }: QRGeneratorProps) => {
   const [qrImages, setQrImages] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
@@ -68,6 +70,16 @@ export const QRGenerator = ({ attendees }: QRGeneratorProps) => {
     }
 
     try {
+      // Log email sending attempt
+      onLog?.({
+        type: 'email_sent',
+        action: 'QR code email sending initiated',
+        user: attendee.name,
+        email: attendee.email,
+        details: `QR Code: ${attendee.qrCode}`,
+        status: 'pending'
+      });
+
       const { supabase } = await import("@/integrations/supabase/client");
       
       const { data, error } = await supabase.functions.invoke('send-qr-email', {
@@ -83,12 +95,33 @@ export const QRGenerator = ({ attendees }: QRGeneratorProps) => {
 
       if (error) throw error;
 
+      // Log successful email sending
+      onLog?.({
+        type: 'email_sent',
+        action: 'QR code email sent successfully',
+        user: attendee.name,
+        email: attendee.email,
+        details: `QR Code: ${attendee.qrCode}`,
+        status: 'success'
+      });
+
       toast({
         title: "QR Code Sent!",
         description: `QR code sent to ${attendee.name} via email`,
       });
     } catch (error) {
       console.error('Failed to send QR code:', error);
+      
+      // Log failed email sending
+      onLog?.({
+        type: 'email_sent',
+        action: 'QR code email sending failed',
+        user: attendee.name,
+        email: attendee.email,
+        details: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        status: 'error'
+      });
+
       toast({
         title: "Error",
         description: "Failed to send QR code email",

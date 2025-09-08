@@ -10,14 +10,16 @@ import { Plus, Mail, Phone, QrCode, Send, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Papa from 'papaparse';
 import type { Attendee } from "./EventDashboard";
+import type { LogEntry } from "./LogsView";
 
 interface AttendeeManagerProps {
   attendees: Attendee[];
   onAddAttendee: (attendee: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>) => void;
   onAddBulkAttendees: (attendees: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>[]) => void;
+  onLog?: (log: Omit<LogEntry, 'id' | 'timestamp'>) => void;
 }
 
-export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees }: AttendeeManagerProps) => {
+export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, onLog }: AttendeeManagerProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -114,6 +116,16 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees }
     }
 
     try {
+      // Log email sending attempt
+      onLog?.({
+        type: 'email_sent',
+        action: 'QR code email sending initiated',
+        user: attendee.name,
+        email: attendee.email,
+        details: `QR Code: ${attendee.qrCode}`,
+        status: 'pending'
+      });
+
       // Generate QR code image data
       const QRCode = (await import("qrcode")).default;
       const qrImageData = await QRCode.toDataURL(attendee.qrCode, {
@@ -140,12 +152,33 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees }
 
       if (error) throw error;
 
+      // Log successful email sending
+      onLog?.({
+        type: 'email_sent',
+        action: 'QR code email sent successfully',
+        user: attendee.name,
+        email: attendee.email,
+        details: `QR Code: ${attendee.qrCode}`,
+        status: 'success'
+      });
+
       toast({
         title: "QR Code Sent!",
         description: `QR code sent to ${attendee.name} via email`,
       });
     } catch (error) {
       console.error('Failed to send QR code:', error);
+      
+      // Log failed email sending
+      onLog?.({
+        type: 'email_sent',
+        action: 'QR code email sending failed',
+        user: attendee.name,
+        email: attendee.email,
+        details: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        status: 'error'
+      });
+
       toast({
         title: "Error",
         description: "Failed to send QR code email",

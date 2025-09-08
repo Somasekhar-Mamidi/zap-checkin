@@ -3,11 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, UserCheck, QrCode, FileText, Plus, Scan } from "lucide-react";
+import { Users, UserCheck, QrCode, FileText, Plus, Scan, Activity } from "lucide-react";
 import { AttendeeManager } from "./AttendeeManager";
 import { CheckInScanner } from "./CheckInScanner";
 import { ReportsView } from "./ReportsView";
 import { QRGenerator } from "./QRGenerator";
+import { LogsView, LogEntry } from "./LogsView";
+import { useToast } from "@/hooks/use-toast";
 
 export interface Attendee {
   id: string;
@@ -50,6 +52,26 @@ const EventDashboard = () => {
   ]);
 
   const [activeTab, setActiveTab] = useState("overview");
+  const [logs, setLogs] = useState<LogEntry[]>([
+    {
+      id: "1",
+      timestamp: new Date(),
+      type: 'system',
+      action: 'System initialized',
+      details: 'Event dashboard started with 3 pre-registered attendees',
+      status: 'success'
+    }
+  ]);
+  const { toast } = useToast();
+
+  const addLog = (log: Omit<LogEntry, 'id' | 'timestamp'>) => {
+    const newLog: LogEntry = {
+      ...log,
+      id: Date.now().toString(),
+      timestamp: new Date()
+    };
+    setLogs(prevLogs => [newLog, ...prevLogs]);
+  };
 
   const stats = {
     total: attendees.length,
@@ -66,6 +88,16 @@ const EventDashboard = () => {
       qrCode: `EVT-${Date.now()}-${attendee.name.split(' ')[0].toUpperCase()}`
     };
     setAttendees([...attendees, newAttendee]);
+    
+    // Log the registration
+    addLog({
+      type: 'registration',
+      action: 'New attendee registered',
+      user: attendee.name,
+      email: attendee.email,
+      details: `QR Code: ${newAttendee.qrCode}`,
+      status: 'success'
+    });
   };
 
   const addBulkAttendees = (newAttendees: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>[]) => {
@@ -76,14 +108,83 @@ const EventDashboard = () => {
       qrCode: `EVT-${Date.now() + index}-${attendee.name.split(' ')[0].toUpperCase()}`
     }));
     setAttendees([...attendees, ...attendeesWithIds]);
+    
+    // Log the bulk registration
+    addLog({
+      type: 'registration',
+      action: 'Bulk attendees registered',
+      details: `${newAttendees.length} attendees added via CSV upload`,
+      status: 'success'
+    });
   };
 
   const checkInAttendee = (qrCode: string) => {
-    setAttendees(attendees.map(attendee => 
-      attendee.qrCode === qrCode 
-        ? { ...attendee, checkedIn: true, checkedInAt: new Date() }
-        : attendee
-    ));
+    const attendee = attendees.find(a => a.qrCode === qrCode);
+    if (attendee) {
+      setAttendees(attendees.map(a => 
+        a.qrCode === qrCode 
+          ? { ...a, checkedIn: true, checkedInAt: new Date() }
+          : a
+      ));
+      
+      // Log the check-in
+      addLog({
+        type: 'checkin',
+        action: 'Attendee checked in',
+        user: attendee.name,
+        email: attendee.email,
+        details: `QR Code: ${qrCode}`,
+        status: 'success'
+      });
+    } else {
+      // Log failed check-in attempt
+      addLog({
+        type: 'checkin',
+        action: 'Check-in attempt failed',
+        details: `Invalid QR Code: ${qrCode}`,
+        status: 'error'
+      });
+    }
+  };
+
+  const clearLogs = () => {
+    setLogs([]);
+    toast({
+      title: "Logs Cleared",
+      description: "All activity logs have been cleared",
+    });
+  };
+
+  const exportLogs = () => {
+    const csvContent = [
+      ['Timestamp', 'Type', 'Action', 'User', 'Email', 'Details', 'Status'],
+      ...logs.map(log => [
+        log.timestamp.toISOString(),
+        log.type,
+        log.action,
+        log.user || '',
+        log.email || '',
+        log.details || '',
+        log.status
+      ])
+    ];
+    
+    const csvString = csvContent.map(row => 
+      row.map(field => `"${field}"`).join(',')
+    ).join('\n');
+    
+    const blob = new Blob([csvString], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `event-logs-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Logs Exported",
+      description: "Activity logs have been exported as CSV",
+    });
   };
 
   return (
@@ -100,7 +201,7 @@ const EventDashboard = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-fit lg:grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6 lg:w-fit lg:grid-cols-6">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
               Overview
@@ -120,6 +221,10 @@ const EventDashboard = () => {
             <TabsTrigger value="reports" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
               Reports
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="flex items-center gap-2">
+              <Activity className="w-4 h-4" />
+              Logs
             </TabsTrigger>
           </TabsList>
 
@@ -203,11 +308,19 @@ const EventDashboard = () => {
           </TabsContent>
 
           <TabsContent value="attendees">
-            <AttendeeManager attendees={attendees} onAddAttendee={addAttendee} onAddBulkAttendees={addBulkAttendees} />
+            <AttendeeManager 
+              attendees={attendees} 
+              onAddAttendee={addAttendee} 
+              onAddBulkAttendees={addBulkAttendees}
+              onLog={addLog}
+            />
           </TabsContent>
 
           <TabsContent value="qr-codes">
-            <QRGenerator attendees={attendees} />
+            <QRGenerator 
+              attendees={attendees}
+              onLog={addLog}
+            />
           </TabsContent>
 
           <TabsContent value="checkin">
@@ -216,6 +329,14 @@ const EventDashboard = () => {
 
           <TabsContent value="reports">
             <ReportsView attendees={attendees} />
+          </TabsContent>
+
+          <TabsContent value="logs">
+            <LogsView 
+              logs={logs} 
+              onClearLogs={clearLogs}
+              onExportLogs={exportLogs}
+            />
           </TabsContent>
         </Tabs>
       </div>
