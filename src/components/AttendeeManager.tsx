@@ -6,17 +6,20 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Mail, Phone, QrCode, Send } from "lucide-react";
+import { Plus, Mail, Phone, QrCode, Send, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import Papa from 'papaparse';
 import type { Attendee } from "./EventDashboard";
 
 interface AttendeeManagerProps {
   attendees: Attendee[];
   onAddAttendee: (attendee: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>) => void;
+  onAddBulkAttendees: (attendees: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>[]) => void;
 }
 
-export const AttendeeManager = ({ attendees, onAddAttendee }: AttendeeManagerProps) => {
+export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees }: AttendeeManagerProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -44,6 +47,62 @@ export const AttendeeManager = ({ attendees, onAddAttendee }: AttendeeManagerPro
     });
   };
 
+  const handleCSVUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const validAttendees: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>[] = [];
+        const errors: string[] = [];
+
+        results.data.forEach((row: any, index: number) => {
+          const { name, email, phone } = row;
+          
+          if (!name || !email || !phone) {
+            errors.push(`Row ${index + 1}: Missing required fields`);
+          } else if (!email.includes('@')) {
+            errors.push(`Row ${index + 1}: Invalid email format`);
+          } else {
+            validAttendees.push({ name, email, phone });
+          }
+        });
+
+        if (errors.length > 0) {
+          toast({
+            title: "CSV Upload Errors",
+            description: `${errors.length} errors found. Check console for details.`,
+            variant: "destructive"
+          });
+          console.error('CSV Upload Errors:', errors);
+          return;
+        }
+
+        if (validAttendees.length > 0) {
+          onAddBulkAttendees(validAttendees);
+          setIsBulkDialogOpen(false);
+          toast({
+            title: "Success!",
+            description: `${validAttendees.length} attendees uploaded successfully`,
+          });
+        }
+      },
+      error: (error) => {
+        toast({
+          title: "Error",
+          description: "Failed to parse CSV file",
+          variant: "destructive"
+        });
+        console.error('CSV Parse Error:', error);
+      }
+    });
+
+    // Reset the file input
+    event.target.value = '';
+  };
+
   const handleSendQR = (attendee: Attendee) => {
     toast({
       title: "QR Code Sent!",
@@ -61,52 +120,90 @@ export const AttendeeManager = ({ attendees, onAddAttendee }: AttendeeManagerPro
               Add and manage event attendees
             </p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-primary hover:shadow-glow transition-all duration-300">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Attendee
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Attendee</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Enter full name"
-                  />
+          <div className="flex gap-2">
+            <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="hover:bg-primary hover:text-primary-foreground">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Bulk Upload
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Bulk Upload Attendees</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="csv-upload">Upload CSV File</Label>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      CSV should have columns: name, email, phone
+                    </p>
+                    <Input
+                      id="csv-upload"
+                      type="file"
+                      accept=".csv"
+                      onChange={handleCSVUpload}
+                      className="cursor-pointer"
+                    />
+                  </div>
+                  <div className="p-4 bg-muted rounded-md">
+                    <h4 className="font-medium mb-2">CSV Format Example:</h4>
+                    <code className="text-sm">
+                      name,email,phone<br />
+                      John Doe,john@example.com,+1234567890<br />
+                      Jane Smith,jane@example.com,+0987654321
+                    </code>
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="Enter email address"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="Enter phone number"
-                  />
-                </div>
-                <Button type="submit" className="w-full bg-gradient-primary">
+              </DialogContent>
+            </Dialog>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-gradient-primary hover:shadow-glow transition-all duration-300">
+                  <Plus className="w-4 h-4 mr-2" />
                   Add Attendee
                 </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Attendee</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Enter full name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="Enter email address"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+                  <Button type="submit" className="w-full bg-gradient-primary">
+                    Add Attendee
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">

@@ -68,6 +68,16 @@ const EventDashboard = () => {
     setAttendees([...attendees, newAttendee]);
   };
 
+  const addBulkAttendees = (newAttendees: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>[]) => {
+    const attendeesWithIds: Attendee[] = newAttendees.map((attendee, index) => ({
+      ...attendee,
+      id: (Date.now() + index).toString(),
+      checkedIn: false,
+      qrCode: `EVT-${Date.now() + index}-${attendee.name.split(' ')[0].toUpperCase()}`
+    }));
+    setAttendees([...attendees, ...attendeesWithIds]);
+  };
+
   const checkInAttendee = (qrCode: string) => {
     setAttendees(attendees.map(attendee => 
       attendee.qrCode === qrCode 
@@ -193,7 +203,7 @@ const EventDashboard = () => {
           </TabsContent>
 
           <TabsContent value="attendees">
-            <AttendeeManager attendees={attendees} onAddAttendee={addAttendee} />
+            <AttendeeManager attendees={attendees} onAddAttendee={addAttendee} onAddBulkAttendees={addBulkAttendees} />
           </TabsContent>
 
           <TabsContent value="qr-codes">
