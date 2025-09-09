@@ -60,15 +60,44 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
         const validAttendees: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>[] = [];
         const errors: string[] = [];
 
+        // Get the headers from the CSV
+        const headers = results.meta.fields || [];
+        console.log('CSV Headers found:', headers);
+
+        // Create a mapping function to find the correct field
+        const findField = (row: any, possibleNames: string[]): string => {
+          for (const possibleName of possibleNames) {
+            const exactMatch = row[possibleName];
+            if (exactMatch) return exactMatch;
+            
+            // Try case-insensitive match
+            const caseInsensitiveMatch = Object.keys(row).find(key => 
+              key.toLowerCase().trim() === possibleName.toLowerCase()
+            );
+            if (caseInsensitiveMatch && row[caseInsensitiveMatch]) {
+              return row[caseInsensitiveMatch];
+            }
+          }
+          return '';
+        };
+
         results.data.forEach((row: any, index: number) => {
-          const { name, email, phone } = row;
+          // Try multiple possible column names for each field
+          const name = findField(row, ['name', 'full name', 'full_name', 'Name', 'Full Name', 'FULL_NAME']);
+          const email = findField(row, ['email', 'email address', 'email_address', 'Email', 'Email Address', 'EMAIL']);
+          const phone = findField(row, ['phone', 'phone number', 'phone_number', 'Phone', 'Phone Number', 'PHONE']);
           
-          if (!name || !email || !phone) {
-            errors.push(`Row ${index + 1}: Missing required fields`);
+          if (!name?.trim() || !email?.trim() || !phone?.trim()) {
+            const availableFields = Object.keys(row).filter(key => row[key]?.toString().trim());
+            errors.push(`Row ${index + 1}: Missing required fields. Found columns: ${availableFields.join(', ')}`);
           } else if (!email.includes('@')) {
-            errors.push(`Row ${index + 1}: Invalid email format`);
+            errors.push(`Row ${index + 1}: Invalid email format - ${email}`);
           } else {
-            validAttendees.push({ name, email, phone });
+            validAttendees.push({ 
+              name: name.trim(), 
+              email: email.trim(), 
+              phone: phone.trim() 
+            });
           }
         });
 
@@ -79,6 +108,8 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
             variant: "destructive"
           });
           console.error('CSV Upload Errors:', errors);
+          console.log('Expected columns: name, email, phone (case-insensitive)');
+          console.log('Alternative accepted names: "Full Name", "Email Address", "Phone Number"');
           return;
         }
 
@@ -88,6 +119,12 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
           toast({
             title: "Success!",
             description: `${validAttendees.length} attendees uploaded successfully`,
+          });
+        } else {
+          toast({
+            title: "No Data",
+            description: "No valid attendee data found in CSV file",
+            variant: "destructive"
           });
         }
       },
