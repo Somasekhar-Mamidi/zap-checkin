@@ -5,9 +5,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, QrCode, Mail, UserPlus, Activity, Download, Search, Filter } from "lucide-react";
-import { useState, useMemo } from "react";
-import { format } from "date-fns";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Calendar, User, QrCode, Mail, UserPlus, Activity, Download, Search, Filter, Eye, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { useState, useMemo, useEffect } from "react";
+import { format, addDays, subDays } from "date-fns";
+import { DateRange } from "react-day-picker";
+import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface LogEntry {
   id: string;
@@ -24,15 +30,50 @@ interface LogsViewProps {
   logs: LogEntry[];
   onClearLogs?: () => void;
   onExportLogs?: () => void;
+  onLoadLogs?: (page: number, limit: number, startDate?: Date, endDate?: Date) => Promise<LogEntry[]>;
+  totalLogs?: number;
 }
 
-export const LogsView = ({ logs, onClearLogs, onExportLogs }: LogsViewProps) => {
+export const LogsView = ({ logs, onClearLogs, onExportLogs, onLoadLogs, totalLogs = 0 }: LogsViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [logsPerPage] = useState(50);
+  const [allLogs, setAllLogs] = useState<LogEntry[]>(logs);
+  const [loading, setLoading] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Load more logs when pagination changes
+  useEffect(() => {
+    const loadOlderLogs = async () => {
+      if (onLoadLogs && currentPage > 1) {
+        setLoading(true);
+        try {
+          const olderLogs = await onLoadLogs(currentPage, logsPerPage, dateRange?.from, dateRange?.to);
+          setAllLogs(prev => [...prev, ...olderLogs]);
+        } catch (error) {
+          console.error('Error loading older logs:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    loadOlderLogs();
+  }, [currentPage, onLoadLogs, dateRange.from, dateRange.to]);
+
+  // Reset when date range changes
+  useEffect(() => {
+    if (dateRange?.from || dateRange?.to) {
+      setCurrentPage(1);
+      setAllLogs(logs);
+    }
+  }, [dateRange?.from, dateRange?.to, logs]);
 
   const filteredLogs = useMemo(() => {
-    return logs.filter(log => {
+    return allLogs.filter(log => {
       const matchesSearch = searchTerm === "" || 
         log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.user?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -44,7 +85,7 @@ export const LogsView = ({ logs, onClearLogs, onExportLogs }: LogsViewProps) => 
       
       return matchesSearch && matchesType && matchesStatus;
     }).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }, [logs, searchTerm, filterType, filterStatus]);
+  }, [allLogs, searchTerm, filterType, filterStatus]);
 
   const getLogIcon = (type: LogEntry['type']) => {
     switch (type) {
@@ -134,6 +175,71 @@ export const LogsView = ({ logs, onClearLogs, onExportLogs }: LogsViewProps) => 
                 />
               </div>
             </div>
+            
+            {/* Date Range Picker */}
+            <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full sm:w-64 justify-start text-left">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    "Pick a date range"
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="p-3">
+                  <div className="flex gap-2 mb-3">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        const today = new Date();
+                        setDateRange({ from: today, to: today });
+                        setShowDatePicker(false);
+                      }}>
+                      Today
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        const today = new Date();
+                        const yesterday = subDays(today, 7);
+                        setDateRange({ from: yesterday, to: today });
+                        setShowDatePicker(false);
+                      }}>
+                      Last 7 days
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setDateRange(undefined);
+                        setShowDatePicker(false);
+                      }}>
+                      Clear
+                    </Button>
+                  </div>
+                  <CalendarComponent
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={2}
+                  />
+                </div>
+              </PopoverContent>
+            </Popover>
+            
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Filter by type" />
@@ -164,25 +270,25 @@ export const LogsView = ({ logs, onClearLogs, onExportLogs }: LogsViewProps) => 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-muted rounded-lg p-4">
               <div className="text-2xl font-bold text-success">
-                {logs.filter(log => log.status === 'success').length}
+                {allLogs.filter(log => log.status === 'success').length}
               </div>
               <div className="text-sm text-muted-foreground">Successful</div>
             </div>
             <div className="bg-muted rounded-lg p-4">
               <div className="text-2xl font-bold text-destructive">
-                {logs.filter(log => log.status === 'error').length}
+                {allLogs.filter(log => log.status === 'error').length}
               </div>
               <div className="text-sm text-muted-foreground">Errors</div>
             </div>
             <div className="bg-muted rounded-lg p-4">
               <div className="text-2xl font-bold text-primary">
-                {logs.filter(log => log.type === 'checkin').length}
+                {allLogs.filter(log => log.type === 'checkin').length}
               </div>
               <div className="text-sm text-muted-foreground">Check-ins</div>
             </div>
             <div className="bg-muted rounded-lg p-4">
               <div className="text-2xl font-bold text-secondary-foreground">
-                {logs.filter(log => log.type === 'email_sent').length}
+                {allLogs.filter(log => log.type === 'email_sent').length}
               </div>
               <div className="text-sm text-muted-foreground">Emails Sent</div>
             </div>
@@ -194,26 +300,28 @@ export const LogsView = ({ logs, onClearLogs, onExportLogs }: LogsViewProps) => 
               <Table>
                 <TableHeader className="sticky top-0 bg-background">
                   <TableRow>
-                    <TableHead className="w-[100px]">Time</TableHead>
+                    <TableHead className="w-[140px]">Time</TableHead>
                     <TableHead className="w-[120px]">Type</TableHead>
                     <TableHead>Action</TableHead>
                     <TableHead>User</TableHead>
                     <TableHead>Details</TableHead>
                     <TableHead className="w-[100px]">Status</TableHead>
+                    <TableHead className="w-[80px]">View</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredLogs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        {logs.length === 0 ? "No logs yet" : "No logs match your filters"}
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        {allLogs.length === 0 ? "No logs yet" : "No logs match your filters"}
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredLogs.map((log) => (
-                      <TableRow key={log.id}>
+                      <TableRow key={log.id} className="hover:bg-muted/50">
                         <TableCell className="font-mono text-xs">
-                          {format(log.timestamp, 'HH:mm:ss')}
+                          <div>{format(log.timestamp, 'MMM dd')}</div>
+                          <div className="text-muted-foreground">{format(log.timestamp, 'HH:mm:ss')}</div>
                         </TableCell>
                         <TableCell>
                           <Badge className={getTypeColor(log.type)}>
@@ -225,25 +333,39 @@ export const LogsView = ({ logs, onClearLogs, onExportLogs }: LogsViewProps) => 
                         </TableCell>
                         <TableCell className="font-medium">{log.action}</TableCell>
                         <TableCell>
-                          {log.user && (
+                          {log.user ? (
                             <div className="flex items-center gap-2">
                               <User className="w-3 h-3" />
                               <div>
                                 <div className="font-medium text-sm">{log.user}</div>
                                 {log.email && (
-                                  <div className="text-xs text-muted-foreground">{log.email}</div>
+                                  <div className="text-xs text-muted-foreground truncate max-w-[150px]">{log.email}</div>
                                 )}
                               </div>
                             </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">System</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {log.details}
+                        <TableCell className="text-sm text-muted-foreground max-w-[200px]">
+                          <div className="truncate" title={log.details || ''}>
+                            {log.details || '-'}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant={getStatusColor(log.status)}>
                             {log.status}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedLog(log)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))
@@ -252,8 +374,128 @@ export const LogsView = ({ logs, onClearLogs, onExportLogs }: LogsViewProps) => 
               </Table>
             </ScrollArea>
           </div>
+
+          {/* Pagination */}
+          {onLoadLogs && (
+            <div className="flex items-center justify-between mt-6">
+              <div className="text-sm text-muted-foreground">
+                Showing {filteredLogs.length} of {totalLogs} logs
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1 || loading}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </Button>
+                <span className="px-3 py-1 text-sm bg-muted rounded">
+                  Page {currentPage}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => prev + 1)}
+                  disabled={loading || filteredLogs.length < logsPerPage}
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+                {loading && (
+                  <div className="ml-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Detailed Log View Dialog */}
+      <Dialog open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedLog && getLogIcon(selectedLog.type)}
+              Log Details
+            </DialogTitle>
+          </DialogHeader>
+          {selectedLog && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Timestamp</label>
+                  <p className="font-mono text-sm">
+                    {format(selectedLog.timestamp, 'MMM dd, yyyy HH:mm:ss')}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
+                  <div className="mt-1">
+                    <Badge variant={getStatusColor(selectedLog.status)}>
+                      {selectedLog.status}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Type</label>
+                  <div className="mt-1">
+                    <Badge className={getTypeColor(selectedLog.type)}>
+                      <div className="flex items-center gap-1">
+                        {getLogIcon(selectedLog.type)}
+                        <span className="capitalize">{selectedLog.type.replace('_', ' ')}</span>
+                      </div>
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">ID</label>
+                  <p className="font-mono text-sm text-muted-foreground">{selectedLog.id}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Action</label>
+                <p className="font-medium">{selectedLog.action}</p>
+              </div>
+
+              {(selectedLog.user || selectedLog.email) && (
+                <div className="grid grid-cols-2 gap-4">
+                  {selectedLog.user && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">User</label>
+                      <p>{selectedLog.user}</p>
+                    </div>
+                  )}
+                  {selectedLog.email && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Email</label>
+                      <p>{selectedLog.email}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedLog.details && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Details</label>
+                  <div className="mt-1 p-3 bg-muted rounded-md">
+                    <pre className="text-sm whitespace-pre-wrap break-words">
+                      {selectedLog.details}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: string | null
+          id: string
+          metadata: Json | null
+          status: string
+          timestamp: string
+          type: string
+          user_email: string | null
+          user_name: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: string | null
+          id?: string
+          metadata?: Json | null
+          status: string
+          timestamp?: string
+          type: string
+          user_email?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: string | null
+          id?: string
+          metadata?: Json | null
+          status?: string
+          timestamp?: string
+          type?: string
+          user_email?: string | null
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       attendees: {
         Row: {
           checked_in: boolean
