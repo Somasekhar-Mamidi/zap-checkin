@@ -26,8 +26,16 @@ const EventDashboard = () => {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [activeTab, setActiveTab] = useState("overview");
   const [isLoading, setIsLoading] = useState(true);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [totalLogs, setTotalLogs] = useState(0);
+  const [logs, setLogs] = useState<LogEntry[]>([
+    {
+      id: "1",
+      timestamp: new Date(),
+      type: 'system',
+      action: 'System initialized',
+      details: 'Event dashboard started',
+      status: 'success'
+    }
+  ]);
   const { toast } = useToast();
 
   // Load attendees from database
@@ -73,96 +81,15 @@ const EventDashboard = () => {
 
   useEffect(() => {
     loadAttendees();
-    loadLogs();
   }, []);
 
-  // Load logs from database
-  const loadLogs = async (page: number = 1, limit: number = 50, startDate?: Date, endDate?: Date) => {
-    try {
-      let query = supabase
-        .from('activity_logs')
-        .select('*', { count: 'exact' })
-        .order('timestamp', { ascending: false });
-
-      if (startDate) {
-        query = query.gte('timestamp', startDate.toISOString());
-      }
-      if (endDate) {
-        query = query.lte('timestamp', endDate.toISOString());
-      }
-
-      if (page === 1) {
-        query = query.limit(limit);
-      } else {
-        query = query.range((page - 1) * limit, page * limit - 1);
-      }
-
-      const { data, error, count } = await query;
-      
-      if (error) {
-        console.error('Error loading logs:', error);
-        return [];
-      }
-
-      const formattedLogs: LogEntry[] = (data || []).map(log => ({
-        id: log.id,
-        timestamp: new Date(log.timestamp),
-        type: log.type as LogEntry['type'],
-        action: log.action,
-        user: log.user_name || undefined,
-        email: log.user_email || undefined,
-        details: log.details || undefined,
-        status: log.status as LogEntry['status']
-      }));
-
-      if (page === 1) {
-        setLogs(formattedLogs);
-        setTotalLogs(count || 0);
-      }
-
-      return formattedLogs;
-    } catch (error) {
-      console.error('Error loading logs:', error);
-      return [];
-    }
-  };
-
-  const addLog = async (log: Omit<LogEntry, 'id' | 'timestamp'>) => {
-    try {
-      const { data, error } = await supabase
-        .from('activity_logs')
-        .insert({
-          type: log.type,
-          action: log.action,
-          user_name: log.user,
-          user_email: log.email,
-          details: log.details,
-          status: log.status
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error adding log:', error);
-        return;
-      }
-
-      const newLog: LogEntry = {
-        id: data.id,
-        timestamp: new Date(data.timestamp),
-        type: data.type as LogEntry['type'],
-        action: data.action,
-        user: data.user_name || undefined,
-        email: data.user_email || undefined,
-        details: data.details || undefined,
-        status: data.status as LogEntry['status']
-      };
-
-      setLogs(prevLogs => [newLog, ...prevLogs]);
-      setTotalLogs(prev => prev + 1);
-    } catch (error) {
-      console.error('Error adding log:', error);
-    }
+  const addLog = (log: Omit<LogEntry, 'id' | 'timestamp'>) => {
+    const newLog: LogEntry = {
+      ...log,
+      id: Date.now().toString(),
+      timestamp: new Date()
+    };
+    setLogs(prevLogs => [newLog, ...prevLogs]);
   };
 
   const stats = {
@@ -376,37 +303,12 @@ const EventDashboard = () => {
     }
   };
 
-  const clearLogs = async () => {
-    try {
-      const { error } = await supabase
-        .from('activity_logs')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all logs
-
-      if (error) {
-        console.error('Error clearing logs:', error);
-        toast({
-          title: "Error",
-          description: "Failed to clear logs",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      setLogs([]);
-      setTotalLogs(0);
-      toast({
-        title: "Logs Cleared",
-        description: "All activity logs have been cleared",
-      });
-    } catch (error) {
-      console.error('Error clearing logs:', error);
-      toast({
-        title: "Error",
-        description: "Failed to clear logs",
-        variant: "destructive"
-      });
-    }
+  const clearLogs = () => {
+    setLogs([]);
+    toast({
+      title: "Logs Cleared",
+      description: "All activity logs have been cleared",
+    });
   };
 
   const exportLogs = () => {
@@ -599,11 +501,9 @@ const EventDashboard = () => {
 
           <TabsContent value="logs">
             <LogsView 
-              logs={logs}
+              logs={logs} 
               onClearLogs={clearLogs}
               onExportLogs={exportLogs}
-              onLoadLogs={loadLogs}
-              totalLogs={totalLogs}
             />
           </TabsContent>
         </Tabs>
