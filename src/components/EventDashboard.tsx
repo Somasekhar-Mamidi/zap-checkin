@@ -200,6 +200,48 @@ const EventDashboard = () => {
     }
   };
 
+  const deleteBulkAttendees = async (attendeeIds: string[]) => {
+    try {
+      const { error } = await supabase
+        .from('attendees')
+        .delete()
+        .in('id', attendeeIds);
+
+      if (error) {
+        console.error('Error deleting attendees:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete attendees",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Reload attendees to get the latest data
+      await loadAttendees();
+      
+      // Log the bulk deletion
+      addLog({
+        type: 'system',
+        action: 'Bulk attendees deleted',
+        details: `${attendeeIds.length} attendees removed`,
+        status: 'success'
+      });
+
+      toast({
+        title: "Success",
+        description: `${attendeeIds.length} attendees have been deleted`,
+      });
+    } catch (error) {
+      console.error('Error deleting attendees:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete attendees",
+        variant: "destructive"
+      });
+    }
+  };
+
   const checkInAttendee = async (qrCode: string) => {
     const attendee = attendees.find(a => a.qrCode === qrCode);
     
@@ -437,6 +479,7 @@ const EventDashboard = () => {
               attendees={attendees} 
               onAddAttendee={addAttendee} 
               onAddBulkAttendees={addBulkAttendees}
+              onDeleteBulkAttendees={deleteBulkAttendees}
               onLog={addLog}
             />
           </TabsContent>

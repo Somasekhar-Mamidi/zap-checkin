@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Mail, Phone, QrCode, Send, Upload } from "lucide-react";
+import { Plus, Mail, Phone, QrCode, Send, Upload, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import Papa from 'papaparse';
 import type { Attendee } from "./EventDashboard";
@@ -16,12 +17,14 @@ interface AttendeeManagerProps {
   attendees: Attendee[];
   onAddAttendee: (attendee: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>) => void;
   onAddBulkAttendees: (attendees: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>[]) => void;
+  onDeleteBulkAttendees: (attendeeIds: string[]) => void;
   onLog?: (log: Omit<LogEntry, 'id' | 'timestamp'>) => void;
 }
 
-export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, onLog }: AttendeeManagerProps) => {
+export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, onDeleteBulkAttendees, onLog }: AttendeeManagerProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -224,6 +227,43 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
     }
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedAttendees(attendees.map(a => a.id));
+    } else {
+      setSelectedAttendees([]);
+    }
+  };
+
+  const handleSelectAttendee = (attendeeId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedAttendees(prev => [...prev, attendeeId]);
+    } else {
+      setSelectedAttendees(prev => prev.filter(id => id !== attendeeId));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedAttendees.length === 0) return;
+    
+    const confirmMessage = `Are you sure you want to delete ${selectedAttendees.length} attendee${selectedAttendees.length > 1 ? 's' : ''}?`;
+    if (window.confirm(confirmMessage)) {
+      await onDeleteBulkAttendees(selectedAttendees);
+      setSelectedAttendees([]);
+      
+      // Log the bulk deletion
+      onLog?.({
+        type: 'system',
+        action: 'Bulk attendees deleted',
+        details: `${selectedAttendees.length} attendees deleted by user`,
+        status: 'success'
+      });
+    }
+  };
+
+  const isAllSelected = attendees.length > 0 && selectedAttendees.length === attendees.length;
+  const isPartiallySelected = selectedAttendees.length > 0 && selectedAttendees.length < attendees.length;
+
   return (
     <div className="space-y-6">
       <Card className="shadow-elegant">
@@ -235,6 +275,16 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
             </p>
           </div>
           <div className="flex gap-2">
+            {selectedAttendees.length > 0 && (
+              <Button
+                variant="destructive"
+                onClick={handleBulkDelete}
+                className="hover:bg-destructive/90"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Selected ({selectedAttendees.length})
+              </Button>
+            )}
             <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="hover:bg-primary hover:text-primary-foreground">
@@ -324,6 +374,12 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={isAllSelected}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
@@ -335,6 +391,12 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
               <TableBody>
                 {attendees.map((attendee) => (
                   <TableRow key={attendee.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedAttendees.includes(attendee.id)}
+                        onCheckedChange={(checked) => handleSelectAttendee(attendee.id, checked as boolean)}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{attendee.name}</TableCell>
                     <TableCell>
                       <div className="flex items-center">
