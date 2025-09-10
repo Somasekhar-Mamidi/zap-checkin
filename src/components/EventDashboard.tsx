@@ -27,6 +27,7 @@ const EventDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [isLoading, setIsLoading] = useState(true);
   const [customMessage, setCustomMessage] = useState("");
+  const [defaultMessage, setDefaultMessage] = useState("Here's your QR code for the event. Please save this image and present it at check-in.");
   const [logs, setLogs] = useState<LogEntry[]>([
     {
       id: "1",
@@ -484,6 +485,8 @@ const EventDashboard = () => {
               onLog={addLog}
               customMessage={customMessage}
               onCustomMessageChange={setCustomMessage}
+              defaultMessage={defaultMessage}
+              onDefaultMessageChange={setDefaultMessage}
             />
           </TabsContent>
 
@@ -492,6 +495,7 @@ const EventDashboard = () => {
               attendees={attendees}
               onLog={addLog}
               customMessage={customMessage}
+              defaultMessage={defaultMessage}
             />
           </TabsContent>
 
