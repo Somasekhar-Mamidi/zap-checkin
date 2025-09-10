@@ -20,13 +20,11 @@ interface AttendeeManagerProps {
   onAddBulkAttendees: (attendees: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>[]) => void;
   onDeleteBulkAttendees: (attendeeIds: string[]) => void;
   onLog?: (log: Omit<LogEntry, 'id' | 'timestamp'>) => void;
-  customMessage?: string;
-  onCustomMessageChange?: (message: string) => void;
   defaultMessage?: string;
   onDefaultMessageChange?: (message: string) => void;
 }
 
-export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, onDeleteBulkAttendees, onLog, customMessage = "", onCustomMessageChange, defaultMessage = "", onDefaultMessageChange }: AttendeeManagerProps) => {
+export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, onDeleteBulkAttendees, onLog, defaultMessage = "", onDefaultMessageChange }: AttendeeManagerProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
@@ -192,7 +190,6 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
             qrCode: attendee.qrCode
           },
           qrImageData,
-          customMessage,
           defaultMessage
         }
       });
@@ -377,88 +374,43 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6 mb-6">
-            {/* Default Message Section */}
-            <div>
-              <Label htmlFor="default-message" className="text-base font-medium">
-                Default Email Text
-              </Label>
-              <p className="text-sm text-muted-foreground mb-3">
-                This is the main instructional text that appears in every QR code email
-              </p>
-              <Textarea
-                id="default-message"
-                placeholder="Enter the main email instructions (e.g., 'Here's your QR code for the event. Please save this image and present it at check-in.')"
-                value={defaultMessage}
-                onChange={(e) => onDefaultMessageChange?.(e.target.value)}
-                className="min-h-[80px] resize-none"
-                maxLength={300}
-              />
-              <div className="flex justify-between items-center mt-2">
-                <span className="text-xs text-muted-foreground">
-                  {defaultMessage.length}/300 characters
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onDefaultMessageChange?.("")}
-                    disabled={!defaultMessage}
-                    className="text-xs"
-                  >
-                    Clear
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onDefaultMessageChange?.("Here's your QR code for the event. Please save this image and present it at check-in.")}
-                    className="text-xs"
-                  >
-                    Use Default
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Custom Message Section */}
-            <div>
-              <Label htmlFor="custom-message" className="text-base font-medium">
-                Additional Custom Message
-              </Label>
-              <p className="text-sm text-muted-foreground mb-3">
-                This optional message will be highlighted separately in the email
-              </p>
-              <Textarea
-                id="custom-message"
-                placeholder="Enter an additional personalized message (e.g., 'Welcome to our event! We're excited to see you there!')"
-                value={customMessage}
-                onChange={(e) => onCustomMessageChange?.(e.target.value)}
-                className="min-h-[80px] resize-none"
-                maxLength={500}
-              />
-              <div className="flex justify-between items-center mt-2">
-                <span className="text-xs text-muted-foreground">
-                  {customMessage.length}/500 characters
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onCustomMessageChange?.("")}
-                    disabled={!customMessage}
-                    className="text-xs"
-                  >
-                    Clear
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onCustomMessageChange?.("Welcome to our event! Please keep this QR code handy for check-in. We're excited to see you there!")}
-                    className="text-xs"
-                  >
-                    Use Example
-                  </Button>
-                </div>
+          <div className="mb-6">
+            <Label htmlFor="default-message" className="text-base font-medium">
+              Email Message
+            </Label>
+            <p className="text-sm text-muted-foreground mb-3">
+              This message will appear in all QR code emails sent to attendees
+            </p>
+            <Textarea
+              id="default-message"
+              placeholder="Enter the email message (e.g., 'Here's your QR code for the event. Please save this image and present it at check-in.')"
+              value={defaultMessage}
+              onChange={(e) => onDefaultMessageChange?.(e.target.value)}
+              className="min-h-[80px] resize-none"
+              maxLength={500}
+            />
+            <div className="flex justify-between items-center mt-2">
+              <span className="text-xs text-muted-foreground">
+                {defaultMessage.length}/500 characters
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onDefaultMessageChange?.("")}
+                  disabled={!defaultMessage}
+                  className="text-xs"
+                >
+                  Clear
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onDefaultMessageChange?.("Here's your QR code for the event. Please save this image and present it at check-in.")}
+                  className="text-xs"
+                >
+                  Use Default
+                </Button>
               </div>
             </div>
           </div>

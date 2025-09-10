@@ -12,11 +12,10 @@ import type { LogEntry } from "./LogsView";
 interface QRGeneratorProps {
   attendees: Attendee[];
   onLog?: (log: Omit<LogEntry, 'id' | 'timestamp'>) => void;
-  customMessage?: string;
   defaultMessage?: string;
 }
 
-export const QRGenerator = ({ attendees, onLog, customMessage = "", defaultMessage = "" }: QRGeneratorProps) => {
+export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGeneratorProps) => {
   const [qrImages, setQrImages] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
@@ -92,7 +91,6 @@ export const QRGenerator = ({ attendees, onLog, customMessage = "", defaultMessa
             qrCode: attendee.qrCode
           },
           qrImageData: qrImage,
-          customMessage,
           defaultMessage
         }
       });
