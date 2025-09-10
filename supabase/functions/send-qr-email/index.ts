@@ -90,22 +90,9 @@ const handler = async (req: Request): Promise<Response> => {
                 Here's your QR code for the event. Please save this image and present it at check-in.
               </p>
               
-              <!-- QR Code with multiple display methods -->
+              <!-- QR Code -->
               <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f8fafc; border-radius: 12px; border: 2px dashed #e5e7eb;">
-                
-                <!-- Primary method: CID reference -->
-                <div style="margin-bottom: 20px;">
-                  <img src="cid:qr-code" alt="Your QR Code" style="max-width: 250px; height: auto; border: 3px solid #262883; border-radius: 12px; box-shadow: 0 4px 8px rgba(38, 40, 131, 0.2); display: block; margin: 0 auto;" />
-                </div>
-                
-                <!-- Fallback method: Base64 embedded -->
-                <div style="margin-top: 20px;">
-                  <img src="data:image/png;base64,${base64Data}" alt="Your QR Code (Fallback)" style="max-width: 250px; height: auto; border: 3px solid #262883; border-radius: 12px; box-shadow: 0 4px 8px rgba(38, 40, 131, 0.2); display: block; margin: 0 auto;" />
-                </div>
-                
-                <p style="color: #6b7280; font-size: 14px; margin: 15px 0 0 0;">
-                  If you can't see the QR code above, please check your email settings or download the attachment.
-                </p>
+                <img src="data:image/png;base64,${base64Data}" alt="Your Event QR Code" style="max-width: 250px; height: auto; border: 3px solid #262883; border-radius: 12px; box-shadow: 0 4px 8px rgba(38, 40, 131, 0.2); display: block; margin: 0 auto;" />
               </div>
               
               <!-- QR Code Text -->
