@@ -26,6 +26,7 @@ const EventDashboard = () => {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [activeTab, setActiveTab] = useState("overview");
   const [isLoading, setIsLoading] = useState(true);
+  const [customMessage, setCustomMessage] = useState("");
   const [logs, setLogs] = useState<LogEntry[]>([
     {
       id: "1",
@@ -481,6 +482,8 @@ const EventDashboard = () => {
               onAddBulkAttendees={addBulkAttendees}
               onDeleteBulkAttendees={deleteBulkAttendees}
               onLog={addLog}
+              customMessage={customMessage}
+              onCustomMessageChange={setCustomMessage}
             />
           </TabsContent>
 
@@ -488,6 +491,7 @@ const EventDashboard = () => {
             <QRGenerator 
               attendees={attendees}
               onLog={addLog}
+              customMessage={customMessage}
             />
           </TabsContent>
 

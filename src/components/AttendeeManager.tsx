@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -19,9 +20,11 @@ interface AttendeeManagerProps {
   onAddBulkAttendees: (attendees: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>[]) => void;
   onDeleteBulkAttendees: (attendeeIds: string[]) => void;
   onLog?: (log: Omit<LogEntry, 'id' | 'timestamp'>) => void;
+  customMessage?: string;
+  onCustomMessageChange?: (message: string) => void;
 }
 
-export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, onDeleteBulkAttendees, onLog }: AttendeeManagerProps) => {
+export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, onDeleteBulkAttendees, onLog, customMessage = "", onCustomMessageChange }: AttendeeManagerProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
@@ -186,7 +189,8 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
             email: attendee.email,
             qrCode: attendee.qrCode
           },
-          qrImageData
+          qrImageData,
+          customMessage
         }
       });
 
@@ -370,6 +374,46 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
           </div>
         </CardHeader>
         <CardContent>
+          <div className="mb-6">
+            <Label htmlFor="custom-message" className="text-base font-medium">
+              Custom Message for QR Code Emails
+            </Label>
+            <p className="text-sm text-muted-foreground mb-3">
+              This message will be included in all QR code emails sent to attendees
+            </p>
+            <Textarea
+              id="custom-message"
+              placeholder="Enter a personalized message for your attendees (e.g., 'Welcome to our event! Please keep this QR code handy for check-in.')"
+              value={customMessage}
+              onChange={(e) => onCustomMessageChange?.(e.target.value)}
+              className="min-h-[80px] resize-none"
+              maxLength={500}
+            />
+            <div className="flex justify-between items-center mt-2">
+              <span className="text-xs text-muted-foreground">
+                {customMessage.length}/500 characters
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onCustomMessageChange?.("")}
+                  disabled={!customMessage}
+                  className="text-xs"
+                >
+                  Clear
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onCustomMessageChange?.("Welcome to our event! Please keep this QR code handy for check-in. We're excited to see you there!")}
+                  className="text-xs"
+                >
+                  Use Example
+                </Button>
+              </div>
+            </div>
+          </div>
           <div className="rounded-md border">
             <Table>
               <TableHeader>

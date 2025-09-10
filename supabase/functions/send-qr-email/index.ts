@@ -14,7 +14,8 @@ interface SendQREmailRequest {
     email: string;
     qrCode: string;
   };
-  qrImageData: string; // base64 data URL
+  qrImageData: string;
+  customMessage?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -24,7 +25,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { attendee, qrImageData }: SendQREmailRequest = await req.json();
+    const { attendee, qrImageData, customMessage }: SendQREmailRequest = await req.json();
 
     console.log(`Sending QR code email to ${attendee.name} (${attendee.email})`);
 
@@ -89,6 +90,15 @@ const handler = async (req: Request): Promise<Response> => {
               <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
                 Here's your QR code for the event. Please save this image and present it at check-in.
               </p>
+              
+              ${customMessage ? `
+              <!-- Custom Message -->
+              <div style="background-color: #f0f9ff; border-left: 4px solid #262883; padding: 20px; margin: 20px 0; border-radius: 8px;">
+                <p style="color: #262883; font-size: 16px; line-height: 1.6; margin: 0; font-style: italic;">
+                  "${customMessage}"
+                </p>
+              </div>
+              ` : ''}
               
               <!-- QR Code -->
               <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f8fafc; border-radius: 12px; border: 2px dashed #e5e7eb;">
