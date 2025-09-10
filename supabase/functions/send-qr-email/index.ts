@@ -65,7 +65,8 @@ const handler = async (req: Request): Promise<Response> => {
           filename: `qr-code-${attendee.name.replace(/\s+/g, '-')}.png`,
           content: base64Data,
           content_type: 'image/png',
-          disposition: 'attachment'
+          disposition: 'inline',
+          cid: 'qr-code'
         }
       ]
     });
