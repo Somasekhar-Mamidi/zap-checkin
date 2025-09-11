@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Scan, Camera, CameraOff, UserCheck, AlertCircle } from "lucide-react";
+import { Scan, Camera, CameraOff, UserCheck, AlertCircle, Maximize, Minimize, Flashlight, FlashlightOff } from "lucide-react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { useToast } from "@/hooks/use-toast";
+import { useMobileOptimizations } from "@/hooks/useMobileOptimizations";
 import type { Attendee } from "./EventDashboard";
 
 interface CheckInScannerProps {
@@ -19,14 +20,25 @@ export const CheckInScanner = ({ attendees, onCheckIn }: CheckInScannerProps) =>
   const [manualCode, setManualCode] = useState("");
   const [lastScanned, setLastScanned] = useState<Attendee | null>(null);
   const [scannerError, setScannerError] = useState<string>("");
+  const [isTorchOn, setIsTorchOn] = useState(false);
+  const [currentStream, setCurrentStream] = useState<MediaStream | null>(null);
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const { toast } = useToast();
+  const { isMobile, isFullscreen, requestFullscreen, exitFullscreen, vibrate } = useMobileOptimizations();
 
   const handleScanSuccess = (decodedText: string) => {
     const attendee = attendees.find(a => a.qrCode === decodedText);
     
+    // Mobile feedback
+    if (isMobile) {
+      vibrate([100, 50, 100]); // Success vibration pattern
+    }
+    
     if (attendee) {
       if (attendee.checkedIn) {
+        if (isMobile) {
+          vibrate([200, 100, 200]); // Error vibration pattern
+        }
         toast({
           title: "Already Checked In",
           description: `${attendee.name} was already checked in`,
@@ -41,6 +53,9 @@ export const CheckInScanner = ({ attendees, onCheckIn }: CheckInScannerProps) =>
         });
       }
     } else {
+      if (isMobile) {
+        vibrate([200, 100, 200]); // Error vibration pattern
+      }
       toast({
         title: "Invalid QR Code",
         description: "This QR code is not registered for this event",
@@ -69,6 +84,25 @@ export const CheckInScanner = ({ attendees, onCheckIn }: CheckInScannerProps) =>
     }
   };
 
+  const toggleTorch = async () => {
+    if (!currentStream) return;
+    
+    const videoTrack = currentStream.getVideoTracks()[0];
+    if (!videoTrack) return;
+
+    try {
+      const capabilities = videoTrack.getCapabilities() as any;
+      if (capabilities.torch) {
+        await videoTrack.applyConstraints({
+          advanced: [{ torch: !isTorchOn } as any]
+        });
+        setIsTorchOn(!isTorchOn);
+      }
+    } catch (error) {
+      console.warn('Torch toggle failed:', error);
+    }
+  };
+
   const startScanning = async () => {
     setScannerError("");
     
@@ -87,15 +121,33 @@ export const CheckInScanner = ({ attendees, onCheckIn }: CheckInScannerProps) =>
     setIsScanning(true);
     
     try {
+      // Get camera stream for torch control
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: isMobile ? "environment" : "user",
+          width: { ideal: isMobile ? 1920 : 640 },
+          height: { ideal: isMobile ? 1080 : 480 }
+        } 
+      });
+      setCurrentStream(stream);
+      
+      // Stop the stream as html5-qrcode will handle it
+      stream.getTracks().forEach(track => track.stop());
+
       scannerRef.current = new Html5QrcodeScanner(
         "qr-reader",
         {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
+          fps: isMobile ? 15 : 10,
+          qrbox: isMobile 
+            ? { width: Math.min(300, window.innerWidth - 40), height: Math.min(300, window.innerWidth - 40) }
+            : { width: 250, height: 250 },
           aspectRatio: 1.0,
           showTorchButtonIfSupported: true,
           showZoomSliderIfSupported: true,
-          defaultZoomValueIfSupported: 2,
+          defaultZoomValueIfSupported: isMobile ? 1.5 : 2,
+          videoConstraints: {
+            facingMode: isMobile ? "environment" : "user"
+          }
         },
         false
       );
@@ -118,13 +170,20 @@ export const CheckInScanner = ({ attendees, onCheckIn }: CheckInScannerProps) =>
   };
 
   const stopScanning = () => {
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop());
+      setCurrentStream(null);
+    }
+    
     if (scannerRef.current) {
       scannerRef.current.clear().then(() => {
         setIsScanning(false);
         setScannerError("");
+        setIsTorchOn(false);
       }).catch((error) => {
         console.error("Error stopping scanner:", error);
         setIsScanning(false);
+        setIsTorchOn(false);
       });
     }
   };
@@ -155,28 +214,38 @@ export const CheckInScanner = ({ attendees, onCheckIn }: CheckInScannerProps) =>
   const totalCount = attendees.length;
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className={`space-y-6 ${isFullscreen ? 'fixed inset-0 z-50 bg-background p-4 overflow-auto' : ''}`}>
+      <div className={`grid gap-6 ${isMobile ? 'grid-cols-1' : isFullscreen ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
         {/* Scanner Section */}
-        <Card className="shadow-elegant">
-          <CardHeader>
+        <Card className={`shadow-elegant ${isFullscreen ? 'h-full' : ''}`}>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <Scan className="w-5 h-5" />
+              <Scan className={`${isMobile ? 'w-6 h-6' : 'w-5 h-5'}`} />
               QR Code Scanner
             </CardTitle>
+            {isMobile && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={isFullscreen ? exitFullscreen : requestFullscreen}
+                className="p-2"
+              >
+                {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+              </Button>
+            )}
           </CardHeader>
             <CardContent className="space-y-4">
               <div className="text-center">
-                <div className="bg-accent/20 rounded-lg p-6 mb-4">
+                <div className={`bg-accent/20 rounded-lg mb-4 ${isFullscreen ? 'p-2' : 'p-6'}`}>
                   <div id="qr-reader" className={isScanning ? "" : "hidden"}></div>
                   {!isScanning && (
-                    <div className="flex flex-col items-center space-y-4">
-                      <Camera className="w-16 h-16 text-muted-foreground" />
-                      <p className="text-muted-foreground">
-                        Click "Start Scanner" to begin scanning QR codes with your camera
+                    <div className={`flex flex-col items-center ${isFullscreen ? 'space-y-6 py-8' : 'space-y-4'}`}>
+                      <Camera className={`text-muted-foreground ${isMobile ? 'w-20 h-20' : 'w-16 h-16'}`} />
+                      <p className={`text-muted-foreground ${isMobile ? 'text-lg' : ''}`}>
+                        {isMobile ? 'Tap "Start Scanner" to scan QR codes' : 'Click "Start Scanner" to begin scanning QR codes with your camera'}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        Make sure to allow camera permissions when prompted
+                      <p className={`text-muted-foreground ${isMobile ? 'text-sm' : 'text-xs'}`}>
+                        {isMobile ? 'Allow camera access when prompted' : 'Make sure to allow camera permissions when prompted'}
                       </p>
                     </div>
                   )}
@@ -201,28 +270,48 @@ export const CheckInScanner = ({ attendees, onCheckIn }: CheckInScannerProps) =>
                   </Alert>
                 )}
 
-                <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                <div className={`flex gap-2 justify-center ${isMobile ? 'flex-col' : 'flex-col sm:flex-row'}`}>
                   <Button
                     onClick={isScanning ? stopScanning : startScanning}
-                    className={isScanning 
+                    className={`${isMobile ? 'py-4 text-lg' : ''} ${isScanning 
                       ? "bg-destructive hover:bg-destructive/90" 
                       : "bg-gradient-primary hover:shadow-glow transition-all duration-300"
-                    }
+                    }`}
                   >
                     {isScanning ? (
                       <>
-                        <CameraOff className="w-4 h-4 mr-2" />
+                        <CameraOff className={`${isMobile ? 'w-6 h-6' : 'w-4 h-4'} mr-2`} />
                         Stop Scanner
                       </>
                     ) : (
                       <>
-                        <Camera className="w-4 h-4 mr-2" />
+                        <Camera className={`${isMobile ? 'w-6 h-6' : 'w-4 h-4'} mr-2`} />
                         Start Scanner
                       </>
                     )}
                   </Button>
                   
-                  {!isScanning && (
+                  {isScanning && isMobile && (
+                    <Button
+                      onClick={toggleTorch}
+                      variant="outline"
+                      className="py-4 text-lg"
+                    >
+                      {isTorchOn ? (
+                        <>
+                          <FlashlightOff className="w-6 h-6 mr-2" />
+                          Turn Off Flash
+                        </>
+                      ) : (
+                        <>
+                          <Flashlight className="w-6 h-6 mr-2" />
+                          Turn On Flash
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  
+                  {!isScanning && !isMobile && (
                     <Button
                       onClick={requestCameraPermission}
                       variant="outline"
@@ -244,80 +333,102 @@ export const CheckInScanner = ({ attendees, onCheckIn }: CheckInScannerProps) =>
         </Card>
 
         {/* Manual Entry & Stats */}
-        <div className="space-y-6">
-          <Card className="shadow-elegant">
-            <CardHeader>
-              <CardTitle>Manual Check-In</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Enter QR code manually"
-                  value={manualCode}
-                  onChange={(e) => setManualCode(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleManualCheckIn()}
-                />
-                <Button onClick={handleManualCheckIn} variant="outline">
-                  <UserCheck className="w-4 h-4 mr-2" />
-                  Check In
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        {!isFullscreen && (
+          <div className="space-y-6">
+            <Card className="shadow-elegant">
+              <CardHeader>
+                <CardTitle className={isMobile ? 'text-lg' : ''}>Manual Check-In</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className={`flex gap-2 ${isMobile ? 'flex-col' : ''}`}>
+                  <Input
+                    placeholder="Enter QR code manually"
+                    value={manualCode}
+                    onChange={(e) => setManualCode(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleManualCheckIn()}
+                    className={isMobile ? 'py-3 text-lg' : ''}
+                  />
+                  <Button 
+                    onClick={handleManualCheckIn} 
+                    variant="outline"
+                    className={isMobile ? 'py-3 text-lg' : ''}
+                  >
+                    <UserCheck className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'} mr-2`} />
+                    Check In
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card className="shadow-elegant">
-            <CardHeader>
-              <CardTitle>Check-In Statistics</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span>Total Registered:</span>
-                <Badge variant="outline">{totalCount}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Checked In:</span>
-                <Badge className="bg-success text-success-foreground">{checkedInCount}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Remaining:</span>
-                <Badge variant="secondary">{totalCount - checkedInCount}</Badge>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div 
-                  className="bg-gradient-success h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${totalCount > 0 ? (checkedInCount / totalCount) * 100 : 0}%` }}
-                ></div>
-              </div>
-              <p className="text-sm text-center text-muted-foreground">
-                {totalCount > 0 ? Math.round((checkedInCount / totalCount) * 100) : 0}% attendance rate
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+            <Card className="shadow-elegant">
+              <CardHeader>
+                <CardTitle className={isMobile ? 'text-lg' : ''}>Check-In Statistics</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className={`flex justify-between items-center ${isMobile ? 'text-lg' : ''}`}>
+                  <span>Total Registered:</span>
+                  <Badge variant="outline" className={isMobile ? 'text-base px-3 py-1' : ''}>{totalCount}</Badge>
+                </div>
+                <div className={`flex justify-between items-center ${isMobile ? 'text-lg' : ''}`}>
+                  <span>Checked In:</span>
+                  <Badge className={`bg-success text-success-foreground ${isMobile ? 'text-base px-3 py-1' : ''}`}>{checkedInCount}</Badge>
+                </div>
+                <div className={`flex justify-between items-center ${isMobile ? 'text-lg' : ''}`}>
+                  <span>Remaining:</span>
+                  <Badge variant="secondary" className={isMobile ? 'text-base px-3 py-1' : ''}>{totalCount - checkedInCount}</Badge>
+                </div>
+                <div className={`w-full bg-muted rounded-full ${isMobile ? 'h-3' : 'h-2'}`}>
+                  <div 
+                    className={`bg-gradient-success rounded-full transition-all duration-300 ${isMobile ? 'h-3' : 'h-2'}`}
+                    style={{ width: `${totalCount > 0 ? (checkedInCount / totalCount) * 100 : 0}%` }}
+                  ></div>
+                </div>
+                <p className={`text-center text-muted-foreground ${isMobile ? 'text-base' : 'text-sm'}`}>
+                  {totalCount > 0 ? Math.round((checkedInCount / totalCount) * 100) : 0}% attendance rate
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
 
       {/* Last Scanned */}
-      {lastScanned && (
+      {lastScanned && !isFullscreen && (
         <Card className="shadow-elegant border-success/50">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-success">
-              <UserCheck className="w-5 h-5" />
+            <CardTitle className={`flex items-center gap-2 text-success ${isMobile ? 'text-lg' : ''}`}>
+              <UserCheck className={`${isMobile ? 'w-6 h-6' : 'w-5 h-5'}`} />
               Last Check-In
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold">{lastScanned.name}</h3>
-                <p className="text-sm text-muted-foreground">{lastScanned.email}</p>
-                <p className="text-xs text-muted-foreground">QR: {lastScanned.qrCode}</p>
+                <h3 className={`font-semibold ${isMobile ? 'text-lg' : ''}`}>{lastScanned.name}</h3>
+                <p className={`text-muted-foreground ${isMobile ? 'text-base' : 'text-sm'}`}>{lastScanned.email}</p>
+                <p className={`text-muted-foreground ${isMobile ? 'text-sm' : 'text-xs'}`}>QR: {lastScanned.qrCode}</p>
               </div>
-              <Badge className="bg-success text-success-foreground">
+              <Badge className={`bg-success text-success-foreground ${isMobile ? 'text-base px-3 py-1' : ''}`}>
                 Checked In
               </Badge>
             </div>
           </CardContent>
         </Card>
+      )}
+      
+      {/* Mobile Quick Stats in Fullscreen */}
+      {isMobile && isFullscreen && lastScanned && (
+        <div className="fixed bottom-4 left-4 right-4 bg-card border border-success/50 rounded-lg p-4 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-success">{lastScanned.name}</p>
+              <p className="text-sm text-muted-foreground">Just checked in</p>
+            </div>
+            <Badge className="bg-success text-success-foreground">
+              ✓ Success
+            </Badge>
+          </div>
+        </div>
       )}
     </div>
   );
