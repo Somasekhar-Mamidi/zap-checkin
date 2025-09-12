@@ -40,20 +40,27 @@ const handler = async (req: Request): Promise<Response> => {
     
     // Process base64 QR code data
     let base64Data: string;
+    let mimeType = 'image/png';
     try {
       // Clean and validate base64 data
       const parts = qrImageData.split(',');
       if (parts.length !== 2) {
         throw new Error('Invalid base64 data format');
       }
-      base64Data = parts[1];
+      // Extract mime type from data URL header (e.g., data:image/png;base64)
+      const header = parts[0];
+      const match = header.match(/^data:(.*?);base64$/);
+      if (match && match[1]) {
+        mimeType = match[1];
+      }
+      base64Data = parts[1].trim();
       
       // Validate base64 format
       if (!base64Data || base64Data.length === 0) {
         throw new Error('Empty base64 data');
       }
       
-      console.log('Base64 data processed successfully, length:', base64Data.length);
+      console.log('Base64 data processed successfully, length:', base64Data.length, 'mime:', mimeType);
     } catch (error) {
       console.error('Error processing base64 data:', error);
       throw new Error(`Failed to process QR code image: ${error.message}`);
@@ -134,9 +141,8 @@ const handler = async (req: Request): Promise<Response> => {
         {
           filename: `qr-code-${attendee.name.replace(/\s+/g, '-')}.png`,
           content: base64Data,
-          contentType: 'image/png',
-          disposition: 'inline',
-          cid: 'qr-code'
+          contentType: mimeType,
+          contentId: 'qr-code'
         }
       ]
     });
