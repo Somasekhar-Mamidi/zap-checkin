@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Download, Send, Eye, Upload, Image as ImageIcon, CheckCircle, Clock, Loader2 } from "lucide-react";
+import { Download, Send, Eye, Upload, Image as ImageIcon, CheckCircle, Clock, Loader2, MessageCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import QRCode from "qrcode";
 import { useToast } from "@/hooks/use-toast";
@@ -197,6 +197,74 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
       toast({
         title: "Error",
         description: "Failed to send QR code email",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSendWhatsApp = (attendee: Attendee) => {
+    try {
+      const qrImageData = qrImages[attendee.id];
+      if (!qrImageData) {
+        toast({
+          title: "Error",
+          description: "QR code not generated yet",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Clean phone number (remove non-numeric characters except +)
+      const cleanPhone = attendee.phone.replace(/[^\d+]/g, '');
+      
+      if (!cleanPhone) {
+        toast({
+          title: "Error",
+          description: "No phone number available for this attendee",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create WhatsApp message
+      const message = defaultMessage || `Hi ${attendee.name}! Here's your QR code for the event. Code: ${attendee.qrCode}`;
+      const encodedMessage = encodeURIComponent(message);
+      
+      // Create WhatsApp Web URL
+      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+      
+      // Open WhatsApp in new tab
+      window.open(whatsappUrl, '_blank');
+
+      // Log WhatsApp sending
+      onLog?.({
+        type: 'whatsapp_sent',
+        action: 'QR code sent via WhatsApp',
+        user: attendee.name,
+        email: attendee.email,
+        details: `WhatsApp message opened for ${cleanPhone}`,
+        status: 'success'
+      });
+
+      toast({
+        title: "WhatsApp Opened!",
+        description: `WhatsApp opened with QR code message for ${attendee.name}`,
+      });
+    } catch (error) {
+      console.error('Failed to open WhatsApp:', error);
+      
+      onLog?.({
+        type: 'whatsapp_sent',
+        action: 'WhatsApp opening failed',
+        user: attendee.name,
+        email: attendee.email,
+        details: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        status: 'error'
+      });
+
+      toast({
+        title: "Error",
+        description: "Failed to open WhatsApp",
         variant: "destructive"
       });
     }
@@ -457,55 +525,67 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
                       {attendee.qrCode}
                     </code>
                   </div>
-                  <div className="flex gap-2">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="flex-1">
-                          <Eye className="w-4 h-4 mr-1" />
-                          View
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>QR Code - {attendee.name}</DialogTitle>
-                        </DialogHeader>
-                        <div className="flex flex-col items-center space-y-4">
-                           {qrImages[attendee.id] && (
-                             <img 
-                               src={qrImages[attendee.id]} 
-                               alt={`QR Code for ${attendee.name}`}
-                               className="w-64 h-64 border rounded-lg object-cover"
-                             />
-                           )}
-                          <div className="text-center space-y-2">
-                            <p className="font-medium">{attendee.name}</p>
-                            <p className="text-sm text-muted-foreground">{attendee.email}</p>
-                            <code className="text-sm bg-muted px-3 py-1 rounded">
-                              {attendee.qrCode}
-                            </code>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleDownloadQR(attendee)}
-                      className="flex-1"
-                    >
-                      <Download className="w-4 h-4 mr-1" />
-                      Download
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleSendQR(attendee)}
-                      className="flex-1 hover:bg-success hover:text-success-foreground"
-                    >
-                      <Send className="w-4 h-4 mr-1" />
-                      Send
-                    </Button>
-                  </div>
+                   <div className="flex gap-2">
+                     <Dialog>
+                       <DialogTrigger asChild>
+                         <Button variant="outline" size="sm" className="flex-1">
+                           <Eye className="w-4 h-4 mr-1" />
+                           View
+                         </Button>
+                       </DialogTrigger>
+                       <DialogContent>
+                         <DialogHeader>
+                           <DialogTitle>QR Code - {attendee.name}</DialogTitle>
+                         </DialogHeader>
+                         <div className="flex flex-col items-center space-y-4">
+                            {qrImages[attendee.id] && (
+                              <img 
+                                src={qrImages[attendee.id]} 
+                                alt={`QR Code for ${attendee.name}`}
+                                className="w-64 h-64 border rounded-lg object-cover"
+                              />
+                            )}
+                           <div className="text-center space-y-2">
+                             <p className="font-medium">{attendee.name}</p>
+                             <p className="text-sm text-muted-foreground">{attendee.email}</p>
+                             <code className="text-sm bg-muted px-3 py-1 rounded">
+                               {attendee.qrCode}
+                             </code>
+                           </div>
+                         </div>
+                       </DialogContent>
+                     </Dialog>
+                     <Button 
+                       variant="outline" 
+                       size="sm" 
+                       onClick={() => handleDownloadQR(attendee)}
+                       className="flex-1"
+                     >
+                       <Download className="w-4 h-4 mr-1" />
+                       Download
+                     </Button>
+                   </div>
+                   <div className="flex gap-2 mt-2">
+                     <Button 
+                       variant="outline" 
+                       size="sm" 
+                       onClick={() => handleSendQR(attendee)}
+                       className="flex-1 hover:bg-success hover:text-success-foreground"
+                     >
+                       <Send className="w-4 h-4 mr-1" />
+                       Email
+                     </Button>
+                     <Button 
+                       variant="outline" 
+                       size="sm" 
+                       onClick={() => handleSendWhatsApp(attendee)}
+                       className="flex-1 hover:bg-accent hover:text-accent-foreground"
+                       disabled={!attendee.phone}
+                     >
+                       <MessageCircle className="w-4 h-4 mr-1" />
+                       WhatsApp
+                     </Button>
+                   </div>
                 </CardContent>
               </Card>
             ))}

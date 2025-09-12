@@ -5,14 +5,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, QrCode, Mail, UserPlus, Activity, Download, Search, Filter } from "lucide-react";
+import { Calendar, User, QrCode, Mail, UserPlus, Activity, Download, Search, Filter, MessageCircle } from "lucide-react";
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
 
 export interface LogEntry {
   id: string;
   timestamp: Date;
-  type: 'checkin' | 'registration' | 'qr_generated' | 'email_sent' | 'system';
+  type: 'checkin' | 'registration' | 'qr_generated' | 'email_sent' | 'whatsapp_sent' | 'system';
   action: string;
   user?: string;
   email?: string;
@@ -56,6 +56,8 @@ export const LogsView = ({ logs, onClearLogs, onExportLogs }: LogsViewProps) => 
         return <QrCode className="w-4 h-4" />;
       case 'email_sent':
         return <Mail className="w-4 h-4" />;
+      case 'whatsapp_sent':
+        return <MessageCircle className="w-4 h-4" />;
       case 'system':
         return <Activity className="w-4 h-4" />;
       default:
@@ -86,6 +88,8 @@ export const LogsView = ({ logs, onClearLogs, onExportLogs }: LogsViewProps) => 
         return 'bg-blue-500 text-white';
       case 'email_sent':
         return 'bg-purple-500 text-white';
+      case 'whatsapp_sent':
+        return 'bg-green-500 text-white';
       case 'system':
         return 'bg-gray-500 text-white';
       default:
@@ -144,6 +148,7 @@ export const LogsView = ({ logs, onClearLogs, onExportLogs }: LogsViewProps) => 
                 <SelectItem value="registration">Registrations</SelectItem>
                 <SelectItem value="qr_generated">QR Generated</SelectItem>
                 <SelectItem value="email_sent">Emails Sent</SelectItem>
+                <SelectItem value="whatsapp_sent">WhatsApp Sent</SelectItem>
                 <SelectItem value="system">System</SelectItem>
               </SelectContent>
             </Select>
@@ -185,6 +190,12 @@ export const LogsView = ({ logs, onClearLogs, onExportLogs }: LogsViewProps) => 
                 {logs.filter(log => log.type === 'email_sent').length}
               </div>
               <div className="text-sm text-muted-foreground">Emails Sent</div>
+            </div>
+            <div className="bg-muted rounded-lg p-4">
+              <div className="text-2xl font-bold text-secondary-foreground">
+                {logs.filter(log => log.type === 'whatsapp_sent').length}
+              </div>
+              <div className="text-sm text-muted-foreground">WhatsApp Sent</div>
             </div>
           </div>
 
