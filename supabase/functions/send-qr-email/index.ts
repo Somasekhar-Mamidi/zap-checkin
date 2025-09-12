@@ -93,7 +93,7 @@ const handler = async (req: Request): Promise<Response> => {
               
               <!-- QR Code -->
               <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f8fafc; border-radius: 12px; border: 2px dashed #e5e7eb;">
-                <img src="data:image/png;base64,${base64Data}" alt="Your Event QR Code" style="max-width: 250px; height: auto; border: 3px solid #262883; border-radius: 12px; box-shadow: 0 4px 8px rgba(38, 40, 131, 0.2); display: block; margin: 0 auto;" />
+                <img src="cid:qr-code" alt="Your Event QR Code" style="max-width: 250px; height: auto; border: 3px solid #262883; border-radius: 12px; box-shadow: 0 4px 8px rgba(38, 40, 131, 0.2); display: block; margin: 0 auto;" />
               </div>
               
               <!-- QR Code Text -->
