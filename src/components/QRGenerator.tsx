@@ -6,11 +6,13 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Download, Send, Eye, Upload, Image as ImageIcon } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Download, Send, Eye, Upload, Image as ImageIcon, CheckCircle, Clock, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import QRCode from "qrcode";
 import { useToast } from "@/hooks/use-toast";
 import { composeQRWithBackground, type QRCompositionOptions } from "@/lib/qr-canvas";
+import { useBackgroundPersistence } from "@/hooks/useBackgroundPersistence";
 import type { Attendee } from "./EventDashboard";
 import type { LogEntry } from "./LogsView";
 
@@ -20,29 +22,47 @@ interface QRGeneratorProps {
   defaultMessage?: string;
 }
 
+type QRProgress = 'waiting' | 'generating' | 'ready' | 'error';
+
 export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGeneratorProps) => {
   const [qrImages, setQrImages] = useState<Record<string, string>>({});
-  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
-  const [backgroundPreview, setBackgroundPreview] = useState<string | null>(null);
-  const [qrOptions, setQrOptions] = useState<QRCompositionOptions>({
-    qrSize: 200,
-    qrOpacity: 1,
-    position: 'center',
-    backgroundOpacity: 1,
-  });
+  const [qrProgress, setQrProgress] = useState<Record<string, QRProgress>>({});
+  const [overallProgress, setOverallProgress] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  
+  const {
+    backgroundFile,
+    backgroundPreview,
+    qrOptions,
+    saveBackground,
+    removeBackground,
+    updateQrOptions
+  } = useBackgroundPersistence();
 
   const generateQRCodes = async () => {
     if (isGenerating) return;
     setIsGenerating(true);
+    setOverallProgress(0);
+    
+    // Initialize progress for all attendees
+    const progressState: Record<string, QRProgress> = {};
+    attendees.forEach(attendee => {
+      progressState[attendee.id] = 'waiting';
+    });
+    setQrProgress(progressState);
     
     try {
       const images: Record<string, string> = {};
+      let completedCount = 0;
+      
       for (const attendee of attendees) {
         if (attendee.qrCode) {
           try {
+            // Update progress to generating
+            setQrProgress(prev => ({ ...prev, [attendee.id]: 'generating' }));
+            
             // Generate base QR code
             const baseQrDataURL = await QRCode.toDataURL(attendee.qrCode, {
               width: qrOptions.qrSize,
@@ -63,8 +83,17 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
             }
 
             images[attendee.id] = finalQrDataURL;
+            
+            // Update progress to ready
+            setQrProgress(prev => ({ ...prev, [attendee.id]: 'ready' }));
+            completedCount++;
+            
+            // Update overall progress
+            setOverallProgress((completedCount / attendees.length) * 100);
+            
           } catch (error) {
             console.error('Error generating QR code:', error);
+            setQrProgress(prev => ({ ...prev, [attendee.id]: 'error' }));
           }
         }
       }
@@ -185,14 +214,7 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
           return;
         }
         
-        setBackgroundFile(file);
-        
-        // Create preview
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setBackgroundPreview(e.target?.result as string);
-        };
-        reader.readAsDataURL(file);
+        saveBackground(file);
         
         toast({
           title: "Background uploaded!",
@@ -209,8 +231,7 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
   };
 
   const handleRemoveBackground = () => {
-    setBackgroundFile(null);
-    setBackgroundPreview(null);
+    removeBackground();
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -286,13 +307,24 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
             )}
           </div>
 
+          {/* Progress Bar */}
+          {isGenerating && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span>Generating QR codes...</span>
+                <span>{Math.round(overallProgress)}%</span>
+              </div>
+              <Progress value={overallProgress} className="w-full" />
+            </div>
+          )}
+
           {/* QR Customization Controls */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label>QR Size: {qrOptions.qrSize}px</Label>
               <Slider
                 value={[qrOptions.qrSize]}
-                onValueChange={(value) => setQrOptions(prev => ({ ...prev, qrSize: value[0] }))}
+                onValueChange={(value) => updateQrOptions({ qrSize: value[0] })}
                 min={100}
                 max={300}
                 step={10}
@@ -304,7 +336,7 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
               <Label>QR Opacity: {Math.round(qrOptions.qrOpacity * 100)}%</Label>
               <Slider
                 value={[qrOptions.qrOpacity]}
-                onValueChange={(value) => setQrOptions(prev => ({ ...prev, qrOpacity: value[0] }))}
+                onValueChange={(value) => updateQrOptions({ qrOpacity: value[0] })}
                 min={0.5}
                 max={1}
                 step={0.1}
@@ -317,7 +349,7 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
                 <Label>Background Opacity: {Math.round(qrOptions.backgroundOpacity * 100)}%</Label>
                 <Slider
                   value={[qrOptions.backgroundOpacity]}
-                  onValueChange={(value) => setQrOptions(prev => ({ ...prev, backgroundOpacity: value[0] }))}
+                  onValueChange={(value) => updateQrOptions({ backgroundOpacity: value[0] })}
                   min={0.3}
                   max={1}
                   step={0.1}
@@ -330,7 +362,7 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
               <Label>Position</Label>
               <Select
                 value={qrOptions.position}
-                onValueChange={(value) => setQrOptions(prev => ({ ...prev, position: value as QRCompositionOptions['position'] }))}
+                onValueChange={(value) => updateQrOptions({ position: value as QRCompositionOptions['position'] })}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -386,17 +418,36 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
                 </CardHeader>
                 <CardContent className="space-y-4">
                    <div className="flex justify-center">
-                     {qrImages[attendee.id] ? (
-                       <img 
-                         src={qrImages[attendee.id]} 
-                         alt={`QR Code for ${attendee.name}`}
-                         className="w-32 h-32 border rounded-lg object-cover"
-                       />
+                     {qrProgress[attendee.id] === 'ready' && qrImages[attendee.id] ? (
+                       <div className="relative">
+                         <img 
+                           src={qrImages[attendee.id]} 
+                           alt={`QR Code for ${attendee.name}`}
+                           className="w-32 h-32 border rounded-lg object-cover"
+                         />
+                         <div className="absolute -top-2 -right-2 bg-success rounded-full p-1">
+                           <CheckCircle className="w-4 h-4 text-success-foreground" />
+                         </div>
+                       </div>
+                     ) : qrProgress[attendee.id] === 'generating' ? (
+                       <div className="w-32 h-32 bg-muted rounded-lg flex items-center justify-center">
+                         <div className="flex flex-col items-center gap-2">
+                           <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                           <span className="text-xs text-muted-foreground">Generating...</span>
+                         </div>
+                       </div>
+                     ) : qrProgress[attendee.id] === 'error' ? (
+                       <div className="w-32 h-32 bg-destructive/10 rounded-lg flex items-center justify-center border border-destructive/20">
+                         <span className="text-xs text-destructive text-center">
+                           Generation failed
+                         </span>
+                       </div>
                      ) : (
                        <div className="w-32 h-32 bg-muted rounded-lg flex items-center justify-center">
-                         <span className="text-muted-foreground">
-                           {isGenerating ? "Generating..." : "Loading..."}
-                         </span>
+                         <div className="flex flex-col items-center gap-2">
+                           <Clock className="w-6 h-6 text-muted-foreground" />
+                           <span className="text-xs text-muted-foreground">Waiting...</span>
+                         </div>
                        </div>
                      )}
                    </div>
