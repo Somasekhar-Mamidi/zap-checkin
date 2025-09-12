@@ -13,6 +13,7 @@ import QRCode from "qrcode";
 import { useToast } from "@/hooks/use-toast";
 import { composeQRWithBackground, type QRCompositionOptions } from "@/lib/qr-canvas";
 import { useBackgroundPersistence } from "@/hooks/useBackgroundPersistence";
+import { hslToHex } from "@/lib/utils";
 import type { Attendee } from "./EventDashboard";
 import type { LogEntry } from "./LogsView";
 
@@ -68,7 +69,7 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
               width: qrOptions.qrSize,
               margin: 2,
               color: {
-                dark: 'hsl(262 83% 58%)', // Use primary color from design system
+                dark: hslToHex(262, 83, 58), // Convert primary color to hex
                 light: '#FFFFFF'
               }
             });
