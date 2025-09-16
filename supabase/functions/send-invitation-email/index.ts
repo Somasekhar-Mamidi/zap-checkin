@@ -198,7 +198,7 @@ const handler = async (req: Request): Promise<Response> => {
               </div>
 
               <div style="text-align: center;">
-                <a href="${siteUrl}/auth" class="cta-button">
+                <a href="${siteUrl}/auth?invitation=true&email=${encodeURIComponent(email)}" class="cta-button">
                   🚀 Access Platform
                 </a>
               </div>

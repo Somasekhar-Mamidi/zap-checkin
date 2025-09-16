@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -18,10 +18,21 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isInvitation, setIsInvitation] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
+    // Check for invitation parameters
+    const invitationParam = searchParams.get('invitation');
+    const emailParam = searchParams.get('email');
+    
+    if (invitationParam === 'true' && emailParam) {
+      setIsInvitation(true);
+      setEmail(emailParam);
+    }
+    
     // Check if user is already authenticated
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -40,7 +51,7 @@ const Auth = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, searchParams]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +60,28 @@ const Auth = () => {
     setSuccess("");
 
     try {
+      // If this is an invitation signup, validate the invitation exists
+      if (isInvitation) {
+        const { data: inviteData, error: inviteError } = await supabase
+          .from('invited_users')
+          .select('*')
+          .eq('email', email)
+          .eq('status', 'pending')
+          .maybeSingle();
+
+        if (inviteError) {
+          setError("Error validating invitation. Please try again.");
+          setLoading(false);
+          return;
+        }
+
+        if (!inviteData) {
+          setError("Invalid or expired invitation. Please contact your administrator.");
+          setLoading(false);
+          return;
+        }
+      }
+      
       const redirectUrl = `${window.location.origin}/`;
       
       const { error } = await supabase.auth.signUp({
@@ -71,10 +104,14 @@ const Auth = () => {
           setError(error.message);
         }
       } else {
-        setSuccess("Check your email for the confirmation link!");
+        if (isInvitation) {
+          setSuccess("Account created successfully! You can now sign in with your credentials.");
+        } else {
+          setSuccess("Check your email for the confirmation link!");
+        }
         toast({
           title: "Account created successfully!",
-          description: "Please check your email to confirm your account.",
+          description: isInvitation ? "You can now sign in with your credentials." : "Please check your email to confirm your account.",
         });
       }
     } catch (err) {
@@ -123,11 +160,19 @@ const Auth = () => {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Event Manager</CardTitle>
           <CardDescription>
-            Sign in to your account or create a new one
+            {isInvitation ? "Complete your invitation signup" : "Sign in to your account or create a new one"}
           </CardDescription>
+          {isInvitation && (
+            <Alert className="mt-4 border-blue-200 bg-blue-50 text-blue-800">
+              <Mail className="h-4 w-4 text-blue-600" />
+              <AlertDescription>
+                You've been invited to join Event Manager. Please create your account using the email: <strong>{email}</strong>
+              </AlertDescription>
+            </Alert>
+          )}
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
+          <Tabs defaultValue={isInvitation ? "signup" : "signin"} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -219,6 +264,7 @@ const Auth = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10"
                       autoComplete="off"
+                      disabled={isInvitation}
                       required
                     />
                   </div>
