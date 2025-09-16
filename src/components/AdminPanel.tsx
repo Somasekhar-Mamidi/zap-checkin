@@ -235,6 +235,64 @@ const AdminPanel = () => {
     }
   };
 
+  const resendInvitation = async (id: string, email: string) => {
+    setLoading(true);
+    try {
+      // Update invitation status to pending and refresh timestamp
+      const { error } = await supabase
+        .from('invited_users')
+        .update({ 
+          status: 'pending',
+          invited_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Send invitation email
+      try {
+        const { error: emailError } = await supabase.functions.invoke('send-invitation-email', {
+          body: {
+            email: email,
+            inviterName: user?.user_metadata?.full_name || user?.email?.split('@')[0],
+            inviterEmail: user?.email,
+          }
+        });
+
+        if (emailError) {
+          console.error('Error sending invitation email:', emailError);
+          toast({
+            title: "Invitation Resent",
+            description: `Successfully resent invitation to ${email}, but email notification failed to send.`,
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Success",
+            description: `Successfully resent invitation to ${email} and sent notification email!`,
+          });
+        }
+      } catch (emailError) {
+        console.error('Error sending invitation email:', emailError);
+        toast({
+          title: "Invitation Resent",
+          description: `Successfully resent invitation to ${email}, but email notification failed to send.`,
+        });
+      }
+
+      loadInvitedUsers();
+    } catch (error) {
+      console.error('Error resending invitation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to resend invitation. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
@@ -428,6 +486,18 @@ const AdminPanel = () => {
                             >
                               <Trash2 className="h-3 w-3 mr-1" />
                               Revoke
+                            </Button>
+                          )}
+                          {invitation.status === 'revoked' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => resendInvitation(invitation.id, invitation.email)}
+                              disabled={loading}
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <Mail className="h-3 w-3 mr-1" />
+                              {loading ? "Sending..." : "Resend"}
                             </Button>
                           )}
                         </TableCell>
