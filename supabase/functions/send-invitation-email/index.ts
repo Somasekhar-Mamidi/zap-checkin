@@ -227,7 +227,7 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailResponse = await resend.emails.send({
-      from: "Event Manager <onboarding@resend.dev>",
+      from: "Event Manager <noreply@juspayconnect.online>",
       to: [email],
       subject: "🎉 You're invited to Event Manager Platform",
       html: emailHtml,
