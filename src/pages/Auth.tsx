@@ -146,6 +146,7 @@ const Auth = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10"
+                      autoComplete="off"
                       required
                     />
                   </div>
@@ -162,6 +163,7 @@ const Auth = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="pl-10 pr-10"
+                      autoComplete="off"
                       required
                     />
                     <Button
@@ -199,6 +201,7 @@ const Auth = () => {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       className="pl-10"
+                      autoComplete="off"
                       required
                     />
                   </div>
@@ -215,6 +218,7 @@ const Auth = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10"
+                      autoComplete="off"
                       required
                     />
                   </div>
@@ -231,6 +235,7 @@ const Auth = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="pl-10 pr-10"
+                      autoComplete="off"
                       required
                       minLength={6}
                     />
