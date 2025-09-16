@@ -261,6 +261,51 @@ const AdminPanel = () => {
     }
   };
 
+  const deleteUser = async (userId: string, userEmail: string, userRole: string) => {
+    // Prevent super admins from being deleted and prevent deletion of own account
+    if (userRole === 'super_admin') {
+      toast({
+        title: "Error",
+        description: "Super admin accounts cannot be deleted.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (userId === user?.id) {
+      toast({
+        title: "Error",
+        description: "You cannot delete your own account.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Delete user role to revoke access
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+
+      if (roleError) throw roleError;
+
+      toast({
+        title: "Success",
+        description: `Successfully removed access for ${userEmail}`,
+      });
+
+      loadUserRoles();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete user. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (!isAdmin) {
     return (
       <Card>
@@ -414,6 +459,7 @@ const AdminPanel = () => {
                       <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Joined</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -429,6 +475,39 @@ const AdminPanel = () => {
                             <Calendar className="h-3 w-3" />
                             {new Date(userRole.created_at).toLocaleDateString()}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {userRole.role !== 'super_admin' && userRole.user_id !== user?.id && (
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <Trash2 className="h-3 w-3 mr-1" />
+                                  Remove
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Remove User Access</DialogTitle>
+                                  <DialogDescription>
+                                    Are you sure you want to remove access for {userRole.profiles?.email}? This action cannot be undone.
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <DialogFooter>
+                                  <Button variant="outline">Cancel</Button>
+                                  <Button 
+                                    variant="destructive"
+                                    onClick={() => deleteUser(userRole.user_id, userRole.profiles?.email || 'Unknown', userRole.role)}
+                                  >
+                                    Remove Access
+                                  </Button>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
