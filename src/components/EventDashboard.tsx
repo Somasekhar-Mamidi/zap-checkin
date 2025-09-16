@@ -3,13 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, UserCheck, QrCode, FileText, Plus, Scan, Activity } from "lucide-react";
+import { Users, UserCheck, QrCode, FileText, Plus, Scan, Activity, LogOut, User } from "lucide-react";
 import { AttendeeManager } from "./AttendeeManager";
 import { CheckInScanner } from "./CheckInScanner";
 import { ReportsView } from "./ReportsView";
 import { QRGenerator } from "./QRGenerator";
 import { LogsView, LogEntry } from "./LogsView";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Attendee {
@@ -38,6 +39,23 @@ const EventDashboard = () => {
     }
   ]);
   const { toast } = useToast();
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Signed out successfully",
+        description: "You have been logged out of your account.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error signing out",
+        description: "There was a problem signing you out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Load attendees from database
   const loadAttendees = async () => {
@@ -348,13 +366,30 @@ const EventDashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-primary/10">
       <div className="container mx-auto p-6">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent mb-2">
-            Event Check-In Platform
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            Manage your event attendees with QR code check-ins
-          </p>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent mb-2">
+              Event Check-In Platform
+            </h1>
+            <p className="text-muted-foreground text-lg">
+              Manage your event attendees with QR code check-ins
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <User className="w-4 h-4" />
+              <span>{user?.email}</span>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleSignOut}
+              className="flex items-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
