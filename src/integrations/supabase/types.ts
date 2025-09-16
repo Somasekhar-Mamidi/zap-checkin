@@ -180,6 +180,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      user_has_platform_access: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "super_admin" | "admin" | "user"

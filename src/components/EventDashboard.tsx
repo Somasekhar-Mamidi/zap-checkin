@@ -3,14 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, UserCheck, QrCode, FileText, Plus, Scan, Activity, LogOut, User } from "lucide-react";
+import { Users, UserCheck, QrCode, FileText, Plus, Scan, Activity, LogOut, User, Shield } from "lucide-react";
 import { AttendeeManager } from "./AttendeeManager";
 import { CheckInScanner } from "./CheckInScanner";
 import { ReportsView } from "./ReportsView";
 import { QRGenerator } from "./QRGenerator";
 import { LogsView, LogEntry } from "./LogsView";
+import AdminPanel from "./AdminPanel";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useAccessControl } from "@/hooks/useAccessControl";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Attendee {
@@ -40,6 +42,7 @@ const EventDashboard = () => {
   ]);
   const { toast } = useToast();
   const { user, signOut } = useAuth();
+  const { isAdmin } = useAccessControl();
 
   const handleSignOut = async () => {
     try {
@@ -404,7 +407,7 @@ const EventDashboard = () => {
         ) : (
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4 md:grid-cols-7' : 'grid-cols-3 md:grid-cols-6'}`}>
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -429,6 +432,12 @@ const EventDashboard = () => {
               <Activity className="w-4 h-4" />
               <span className="hidden sm:inline">Logs</span>
             </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="admin" className="flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                <span className="hidden sm:inline">Admin</span>
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -545,6 +554,12 @@ const EventDashboard = () => {
               onExportLogs={exportLogs}
             />
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="admin" className="space-y-6">
+              <AdminPanel />
+            </TabsContent>
+          )}
         </Tabs>
         )}
       </div>
