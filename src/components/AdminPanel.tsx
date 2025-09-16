@@ -163,10 +163,37 @@ const AdminPanel = () => {
         return;
       }
 
-      toast({
-        title: "Success",
-        description: `Successfully invited ${newEmail}`,
-      });
+      // Send invitation email
+      try {
+        const { error: emailError } = await supabase.functions.invoke('send-invitation-email', {
+          body: {
+            email: newEmail.trim().toLowerCase(),
+            inviterName: user?.user_metadata?.full_name || user?.email?.split('@')[0],
+            inviterEmail: user?.email,
+          }
+        });
+
+        if (emailError) {
+          console.error('Error sending invitation email:', emailError);
+          // Don't fail the invitation if email fails
+          toast({
+            title: "Invitation Created",
+            description: `Successfully invited ${newEmail}, but email notification failed to send.`,
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Success",
+            description: `Successfully invited ${newEmail} and sent notification email!`,
+          });
+        }
+      } catch (emailError) {
+        console.error('Error sending invitation email:', emailError);
+        toast({
+          title: "Invitation Created",
+          description: `Successfully invited ${newEmail}, but email notification failed to send.`,
+        });
+      }
 
       setNewEmail("");
       setDialogOpen(false);
