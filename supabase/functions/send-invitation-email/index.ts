@@ -64,8 +64,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Sending invitation email to:", email);
 
-    // Get the site URL from environment or use the Supabase URL
-    const siteUrl = Deno.env.get("SITE_URL") || `${supabaseUrl.replace("https://", "https://app-")}.vercel.app` || "https://your-app.lovable.app";
+    // Get the site URL from environment or use a fallback
+    const siteUrl = Deno.env.get("SITE_URL") || "https://project-wnlyhixhnqjyduqcwyep.lovable.app";
 
     const emailHtml = `
       <!DOCTYPE html>
