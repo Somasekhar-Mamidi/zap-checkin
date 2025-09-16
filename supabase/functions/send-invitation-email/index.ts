@@ -64,8 +64,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Sending invitation email to:", email);
 
-    // Get the site URL from environment or use your published URL
-    const siteUrl = Deno.env.get("SITE_URL") || "https://zap-checkin.lovable.app";
+    // Get the site URL from environment or use your custom domain
+    const siteUrl = Deno.env.get("SITE_URL") || "https://juspayconnect.online";
 
     const emailHtml = `
       <!DOCTYPE html>
