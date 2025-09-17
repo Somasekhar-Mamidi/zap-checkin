@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Download, Users, UserCheck, Clock, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import jsPDF from 'jspdf';
 import type { Attendee } from "./EventDashboard";
 
 interface ReportsViewProps {
@@ -49,6 +50,63 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
     toast({
       title: "Report Exported!",
       description: "Event report has been downloaded as CSV",
+    });
+  };
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    const currentDate = new Date().toLocaleDateString();
+    
+    // Title
+    doc.setFontSize(20);
+    doc.text('Event Attendance Report', 20, 30);
+    
+    // Date
+    doc.setFontSize(12);
+    doc.text(`Generated on: ${currentDate}`, 20, 45);
+    
+    // Summary statistics
+    doc.setFontSize(14);
+    doc.text('Summary', 20, 65);
+    doc.setFontSize(11);
+    doc.text(`Total Registered: ${stats.total}`, 20, 80);
+    doc.text(`Checked In: ${stats.checkedIn}`, 20, 90);
+    doc.text(`Pending: ${stats.pending}`, 20, 100);
+    doc.text(`Attendance Rate: ${stats.checkInRate}%`, 20, 110);
+    
+    // Attendee details
+    doc.setFontSize(14);
+    doc.text('Attendee Details', 20, 130);
+    
+    let yPosition = 145;
+    doc.setFontSize(10);
+    
+    // Table headers
+    doc.text('Name', 20, yPosition);
+    doc.text('Email', 80, yPosition);
+    doc.text('Status', 140, yPosition);
+    doc.text('Check-In Time', 170, yPosition);
+    yPosition += 10;
+    
+    // Attendee data
+    attendees.forEach((attendee, index) => {
+      if (yPosition > 270) {
+        doc.addPage();
+        yPosition = 30;
+      }
+      
+      doc.text(attendee.name.substring(0, 25), 20, yPosition);
+      doc.text(attendee.email.substring(0, 30), 80, yPosition);
+      doc.text(attendee.checkedIn ? 'Checked In' : 'Registered', 140, yPosition);
+      doc.text(attendee.checkedInAt ? attendee.checkedInAt.toLocaleDateString() : 'N/A', 170, yPosition);
+      yPosition += 8;
+    });
+    
+    doc.save(`event-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    
+    toast({
+      title: "PDF Report Exported!",
+      description: "Event report has been downloaded as PDF",
     });
   };
 
@@ -118,7 +176,10 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
               <Download className="w-4 h-4 mr-2" />
               Export to CSV
             </Button>
-            <Button variant="outline">
+            <Button 
+              variant="outline"
+              onClick={handleExportPDF}
+            >
               <Download className="w-4 h-4 mr-2" />
               Export to PDF
             </Button>
