@@ -12,6 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import Papa from 'papaparse';
 import { EmailTemplateEditor, EmailTemplate, defaultTemplate } from "./EmailTemplateEditor";
+import { embedLogoInQR, composeQRWithBackground } from "@/lib/qr-canvas";
+import { useBackgroundPersistence } from "@/hooks/useBackgroundPersistence";
 import type { Attendee } from "./EventDashboard";
 import type { LogEntry } from "./LogsView";
 
@@ -26,6 +28,9 @@ interface AttendeeManagerProps {
 }
 
 export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, onDeleteBulkAttendees, onLog, defaultMessage = "", onDefaultMessageChange }: AttendeeManagerProps) => {
+  const { toast } = useToast();
+  const { backgroundFile, qrOptions } = useBackgroundPersistence();
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
@@ -39,7 +44,6 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
     email: "",
     phone: ""
   });
-  const { toast } = useToast();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,9 +192,9 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
         status: 'pending'
       });
 
-      // Generate QR code image data
+      // Generate QR code image data with logo embedding and background composition
       const QRCode = (await import("qrcode")).default;
-      const qrImageData = await QRCode.toDataURL(attendee.qrCode, {
+      let qrImageData = await QRCode.toDataURL(attendee.qrCode, {
         width: 200,
         margin: 2,
         color: {
@@ -198,6 +202,24 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
           light: '#FFFFFF'
         }
       });
+
+      // Apply logo embedding if enabled
+      if (qrOptions.logoEnabled) {
+        qrImageData = await embedLogoInQR(qrImageData, '/assets/juspay-logo.png', qrOptions.logoSize);
+      }
+
+      // Apply background composition if a background is set
+      if (backgroundFile) {
+        qrImageData = await composeQRWithBackground(qrImageData, {
+          background: backgroundFile,
+          qrSize: qrOptions.qrSize,
+          qrOpacity: qrOptions.qrOpacity,
+          position: qrOptions.position,
+          backgroundOpacity: qrOptions.backgroundOpacity,
+          logoEnabled: qrOptions.logoEnabled,
+          logoSize: qrOptions.logoSize
+        });
+      }
 
       const { supabase } = await import("@/integrations/supabase/client");
       
