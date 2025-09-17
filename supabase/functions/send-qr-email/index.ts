@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@4.0.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -99,8 +100,47 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Failed to process QR code image: ${error.message}`);
     }
     
+    // Upload QR image to Supabase Storage and get public URL
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      throw new Error('Supabase URL/Service Role Key not configured');
+    }
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+    // Prepare file path and bytes
+    const safeEmail = attendee.email.replace(/[^a-zA-Z0-9.@_-]/g, '-');
+    const safeName = attendee.name.replace(/[^a-zA-Z0-9._-]/g, '-');
+    const filePath = `attendees/${safeEmail}/${safeName}-qr-${Date.now()}.png`;
+
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const uploadResult = await supabase.storage
+      .from('qr-codes')
+      .upload(filePath, bytes, {
+        contentType: mimeType,
+        upsert: true,
+        cacheControl: '3600',
+      });
+
+    if (uploadResult.error) {
+      console.error('Error uploading QR to storage:', uploadResult.error);
+      throw new Error(`Failed to upload QR image to storage: ${uploadResult.error.message}`);
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('qr-codes')
+      .getPublicUrl(filePath);
+    const qrPublicUrl = publicUrlData.publicUrl;
+
+    console.log('QR image uploaded to storage. URL:', qrPublicUrl);
+
     console.log('Attempting to send email via Resend...');
-    
+
     // Send email using Resend with enhanced HTML and fallback
     const emailResponse = await resend.emails.send({
       from: "Event QR Codes <noreply@juspayconnect.online>",
@@ -133,7 +173,7 @@ const handler = async (req: Request): Promise<Response> => {
               
               <!-- QR Code -->
               <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f8fafc; border-radius: 12px; border: 2px dashed #e5e7eb;">
-                <img src="${qrImageData}" alt="Your Event QR Code" style="max-width: 250px; height: auto; border: 3px solid #262883; border-radius: 12px; box-shadow: 0 4px 8px rgba(38, 40, 131, 0.2); display: block; margin: 0 auto;" />
+                <img src="${qrPublicUrl}" alt="Your Event QR Code" style="max-width: 250px; height: auto; border: 3px solid #262883; border-radius: 12px; box-shadow: 0 4px 8px rgba(38, 40, 131, 0.2); display: block; margin: 0 auto;" />
               </div>
               
               <!-- QR Code Text -->
