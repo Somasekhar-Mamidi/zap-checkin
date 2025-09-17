@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Download, Send, Eye, Upload, Image as ImageIcon, CheckCircle, Clock, Loader2, MessageCircle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import QRCode from "qrcode";
 import { useToast } from "@/hooks/use-toast";
-import { composeQRWithBackground, type QRCompositionOptions } from "@/lib/qr-canvas";
+import { composeQRWithBackground, embedLogoInQR, type QRCompositionOptions } from "@/lib/qr-canvas";
 import { useBackgroundPersistence } from "@/hooks/useBackgroundPersistence";
 import { hslToHex } from "@/lib/utils";
 import type { Attendee } from "./EventDashboard";
@@ -74,10 +75,16 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
               }
             });
 
+            // Embed logo if enabled
+            let qrWithLogo = baseQrDataURL;
+            if (qrOptions.logoEnabled) {
+              qrWithLogo = await embedLogoInQR(baseQrDataURL, '/assets/juspay-logo.png', qrOptions.logoSize || 0.2);
+            }
+
             // Compose with background if available
-            let finalQrDataURL = baseQrDataURL;
+            let finalQrDataURL = qrWithLogo;
             if (backgroundFile) {
-              finalQrDataURL = await composeQRWithBackground(baseQrDataURL, {
+              finalQrDataURL = await composeQRWithBackground(qrWithLogo, {
                 ...qrOptions,
                 background: backgroundFile,
               });
@@ -386,6 +393,34 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
               <Progress value={overallProgress} className="w-full" />
             </div>
           )}
+
+          {/* Logo Controls */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label className="text-base font-medium">Juspay Logo</Label>
+                <p className="text-sm text-muted-foreground">Add Juspay logo to the center of QR codes</p>
+              </div>
+              <Switch
+                checked={qrOptions.logoEnabled || false}
+                onCheckedChange={(checked) => updateQrOptions({ logoEnabled: checked })}
+              />
+            </div>
+            
+            {qrOptions.logoEnabled && (
+              <div className="space-y-2">
+                <Label>Logo Size: {Math.round((qrOptions.logoSize || 0.2) * 100)}% of QR</Label>
+                <Slider
+                  value={[qrOptions.logoSize || 0.2]}
+                  onValueChange={(value) => updateQrOptions({ logoSize: value[0] })}
+                  min={0.1}
+                  max={0.3}
+                  step={0.02}
+                  className="w-full"
+                />
+              </div>
+            )}
+          </div>
 
           {/* QR Customization Controls */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

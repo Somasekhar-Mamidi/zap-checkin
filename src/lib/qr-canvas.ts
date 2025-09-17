@@ -5,6 +5,8 @@ export interface QRCompositionOptions {
   qrOpacity: number;
   position: 'center' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
   backgroundOpacity: number;
+  logoEnabled?: boolean;
+  logoSize?: number;
 }
 
 export const loadImageFromFile = (file: File): Promise<HTMLImageElement> => {
@@ -35,6 +37,68 @@ export const loadImageFromDataURL = (dataURL: string): Promise<HTMLImageElement>
     
     img.src = dataURL;
   });
+};
+
+export const embedLogoInQR = async (
+  qrDataURL: string,
+  logoPath: string = '/assets/juspay-logo.png',
+  logoSize: number = 0.2
+): Promise<string> => {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  if (!ctx) {
+    throw new Error('Canvas context not available');
+  }
+
+  // Load QR code image
+  const qrImage = await loadImageFromDataURL(qrDataURL);
+  
+  // Set canvas dimensions to QR code size
+  canvas.width = qrImage.width;
+  canvas.height = qrImage.height;
+  
+  // Draw QR code
+  ctx.drawImage(qrImage, 0, 0);
+  
+  try {
+    // Load logo
+    const logoImage = new Image();
+    await new Promise((resolve, reject) => {
+      logoImage.onload = resolve;
+      logoImage.onerror = reject;
+      logoImage.src = logoPath;
+    });
+    
+    // Calculate logo dimensions (percentage of QR size)
+    const logoWidth = canvas.width * logoSize;
+    const logoHeight = (logoImage.height / logoImage.width) * logoWidth;
+    
+    // Calculate center position
+    const logoX = (canvas.width - logoWidth) / 2;
+    const logoY = (canvas.height - logoHeight) / 2;
+    
+    // Create white circular background for better logo visibility
+    const radius = Math.max(logoWidth, logoHeight) * 0.6;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, 2 * Math.PI);
+    ctx.fill();
+    
+    // Add subtle border around white background
+    ctx.strokeStyle = '#E5E7EB';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Draw logo
+    ctx.drawImage(logoImage, logoX, logoY, logoWidth, logoHeight);
+    
+  } catch (error) {
+    console.warn('Failed to load logo, proceeding without it:', error);
+    // Logo loading failed, but we continue with just the QR code
+  }
+  
+  return canvas.toDataURL('image/png', 1.0);
 };
 
 export const composeQRWithBackground = async (

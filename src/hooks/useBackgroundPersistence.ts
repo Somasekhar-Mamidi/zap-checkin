@@ -19,6 +19,8 @@ export const useBackgroundPersistence = () => {
     qrOpacity: 1,
     position: 'center',
     backgroundOpacity: 1,
+    logoEnabled: true,
+    logoSize: 0.2,
   });
 
   // Load background from localStorage on mount
