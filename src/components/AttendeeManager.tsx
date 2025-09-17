@@ -6,11 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Mail, Phone, QrCode, Send, Upload, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Plus, Mail, Phone, QrCode, Send, Upload, Trash2, Settings } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import Papa from 'papaparse';
+import { EmailTemplateEditor, EmailTemplate, defaultTemplate } from "./EmailTemplateEditor";
 import type { Attendee } from "./EventDashboard";
 import type { LogEntry } from "./LogsView";
 
@@ -27,7 +28,12 @@ interface AttendeeManagerProps {
 export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, onDeleteBulkAttendees, onLog, defaultMessage = "", onDefaultMessageChange }: AttendeeManagerProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
+  const [emailTemplate, setEmailTemplate] = useState<EmailTemplate>(() => {
+    const saved = localStorage.getItem('emailTemplate');
+    return saved ? JSON.parse(saved) : defaultTemplate;
+  });
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -148,6 +154,19 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
     event.target.value = '';
   };
 
+  const handleTemplateChange = (template: EmailTemplate) => {
+    setEmailTemplate(template);
+  };
+
+  const handleTemplateSave = () => {
+    localStorage.setItem('emailTemplate', JSON.stringify(emailTemplate));
+    toast({
+      title: "Template Saved!",
+      description: "Email template has been saved successfully.",
+    });
+    setIsTemplateDialogOpen(false);
+  };
+
   const handleSendQR = async (attendee: Attendee) => {
     if (!attendee.qrCode) {
       toast({
@@ -190,7 +209,8 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
             qrCode: attendee.qrCode
           },
           qrImageData,
-          defaultMessage
+          defaultMessage,
+          emailTemplate
         }
       });
 
@@ -289,6 +309,27 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
                 Delete Selected ({selectedAttendees.length})
               </Button>
             )}
+            <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="hover:bg-primary hover:text-primary-foreground">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Email Template
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Customize Email Template</DialogTitle>
+                  <DialogDescription>
+                    Create a personalized email template for sending QR codes to attendees.
+                  </DialogDescription>
+                </DialogHeader>
+                <EmailTemplateEditor
+                  template={emailTemplate}
+                  onTemplateChange={handleTemplateChange}
+                  onSave={handleTemplateSave}
+                />
+              </DialogContent>
+            </Dialog>
             <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="hover:bg-primary hover:text-primary-foreground">

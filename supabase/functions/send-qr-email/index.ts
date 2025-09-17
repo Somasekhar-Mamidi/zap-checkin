@@ -8,6 +8,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface EmailTemplate {
+  subject: string;
+  greeting: string;
+  mainMessage: string;
+  qrInstructions: string;
+  closingMessage: string;
+  senderName: string;
+  headerTitle: string;
+}
+
 interface SendQREmailRequest {
   attendee: {
     name: string;
@@ -16,6 +26,7 @@ interface SendQREmailRequest {
   };
   qrImageData: string;
   defaultMessage?: string;
+  emailTemplate?: EmailTemplate;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -25,7 +36,29 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { attendee, qrImageData, defaultMessage }: SendQREmailRequest = await req.json();
+    const { attendee, qrImageData, defaultMessage, emailTemplate }: SendQREmailRequest = await req.json();
+
+    // Use provided template or default values
+    const template: EmailTemplate = emailTemplate || {
+      subject: "Your Event QR Code - {attendeeName}",
+      greeting: "Hello {attendeeName}!",
+      mainMessage: "Here's your QR code for the event. Please save this image and present it at check-in.",
+      qrInstructions: "Your unique QR code:",
+      closingMessage: "We look forward to seeing you at the event!",
+      senderName: "Event Team",
+      headerTitle: "Your Event QR Code"
+    };
+
+    // Replace placeholders with actual attendee data
+    const personalizedTemplate = {
+      subject: template.subject.replace('{attendeeName}', attendee.name),
+      greeting: template.greeting.replace('{attendeeName}', attendee.name),
+      mainMessage: defaultMessage || template.mainMessage,
+      qrInstructions: template.qrInstructions,
+      closingMessage: template.closingMessage,
+      senderName: template.senderName,
+      headerTitle: template.headerTitle
+    };
 
     console.log(`Sending QR code email to ${attendee.name} (${attendee.email})`);
 
@@ -72,7 +105,7 @@ const handler = async (req: Request): Promise<Response> => {
     const emailResponse = await resend.emails.send({
       from: "Event QR Codes <noreply@juspayconnect.online>",
       to: [attendee.email],
-      subject: `Your Event QR Code - ${attendee.name}`,
+      subject: personalizedTemplate.subject,
       html: `
         <!DOCTYPE html>
         <html>
@@ -80,22 +113,22 @@ const handler = async (req: Request): Promise<Response> => {
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-          <title>Your Event QR Code</title>
+          <title>${personalizedTemplate.headerTitle}</title>
         </head>
         <body style="margin: 0; padding: 20px; background-color: #f9f9f9;">
           <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
             
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #262883 0%, #4338ca 100%); color: white; padding: 30px; text-align: center;">
-              <h1 style="margin: 0; font-size: 28px; font-weight: 600;">Your Event QR Code</h1>
+              <h1 style="margin: 0; font-size: 28px; font-weight: 600;">${personalizedTemplate.headerTitle}</h1>
             </div>
             
             <!-- Content -->
             <div style="padding: 40px 30px;">
-              <h2 style="color: #262883; margin: 0 0 20px 0; font-size: 24px;">Hello ${attendee.name}!</h2>
+              <h2 style="color: #262883; margin: 0 0 20px 0; font-size: 24px;">${personalizedTemplate.greeting}</h2>
               
               <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
-                ${defaultMessage || "Here's your QR code for the event. Please save this image and present it at check-in."}
+                ${personalizedTemplate.mainMessage}
               </p>
               
               <!-- QR Code -->
@@ -105,14 +138,14 @@ const handler = async (req: Request): Promise<Response> => {
               
               <!-- QR Code Text -->
               <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 30px 0; text-align: center;">
-                <p style="color: #374151; margin: 0 0 10px 0; font-size: 16px;">Your unique QR code:</p>
+                <p style="color: #374151; margin: 0 0 10px 0; font-size: 16px;">${personalizedTemplate.qrInstructions}</p>
                 <p style="background: #ffffff; padding: 12px 16px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 18px; font-weight: 600; color: #262883; margin: 0; border: 1px solid #e5e7eb; letter-spacing: 1px;">
                   ${attendee.qrCode}
                 </p>
               </div>
               
               <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 30px 0 0 0;">
-                We look forward to seeing you at the event!
+                ${personalizedTemplate.closingMessage}
               </p>
             </div>
             
@@ -120,7 +153,7 @@ const handler = async (req: Request): Promise<Response> => {
             <div style="background-color: #f8fafc; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
               <p style="color: #6b7280; font-size: 14px; margin: 0;">
                 Best regards,<br>
-                <strong style="color: #262883;">Event Team</strong>
+                <strong style="color: #262883;">${personalizedTemplate.senderName}</strong>
               </p>
             </div>
             
