@@ -198,7 +198,7 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
         width: 200,
         margin: 2,
         color: {
-          dark: '#262883',
+          dark: '#000000',
           light: '#FFFFFF'
         }
       });

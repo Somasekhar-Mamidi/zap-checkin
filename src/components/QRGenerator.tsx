@@ -70,7 +70,7 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
               width: qrOptions.qrSize,
               margin: 2,
               color: {
-                dark: hslToHex(262, 83, 58), // Convert primary color to hex
+                dark: '#000000', // Black QR code
                 light: '#FFFFFF'
               }
             });
