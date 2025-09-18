@@ -158,9 +158,9 @@ const handler = async (req: Request): Promise<Response> => {
         <body style="margin: 0; padding: 20px; background-color: #f9f9f9;">
           <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
             
-            <!-- Header Banner -->
-            <div style="background-color: #121316; color: white; padding: 0; text-align: center; width: 100%; height: 150px; display: flex; align-items: center; justify-content: center;">
-              <h1 style="margin: 0; font-size: 28px; font-weight: 600; color: white;">${personalizedTemplate.headerTitle}</h1>
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #262883 0%, #4338ca 100%); color: white; padding: 30px; text-align: center;">
+              <h1 style="margin: 0; font-size: 28px; font-weight: 600;">${personalizedTemplate.headerTitle}</h1>
             </div>
             
             <!-- Content -->
