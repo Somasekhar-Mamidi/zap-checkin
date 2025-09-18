@@ -26,9 +26,11 @@ interface AttendeeManagerProps {
   onLog?: (log: Omit<LogEntry, 'id' | 'timestamp'>) => void;
   defaultMessage?: string;
   onDefaultMessageChange?: (message: string) => void;
+  emailSubject?: string;
+  onEmailSubjectChange?: (subject: string) => void;
 }
 
-export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, onDeleteBulkAttendees, onLog, defaultMessage = "", onDefaultMessageChange }: AttendeeManagerProps) => {
+export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, onDeleteBulkAttendees, onLog, defaultMessage = "", onDefaultMessageChange, emailSubject = "", onEmailSubjectChange }: AttendeeManagerProps) => {
   const { toast } = useToast();
   const { backgroundFile, qrOptions } = useBackgroundPersistence();
   
@@ -240,6 +242,12 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
 
       const { supabase } = await import("@/integrations/supabase/client");
       
+      // Create a customized email template with the current subject
+      const customizedTemplate = {
+        ...emailTemplate,
+        subject: emailSubject || emailTemplate.subject
+      };
+
       const { data, error } = await supabase.functions.invoke('send-qr-email', {
         body: {
           attendee: {
@@ -249,7 +257,7 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
           },
           qrImageData,
           defaultMessage,
-          emailTemplate
+          emailTemplate: customizedTemplate
         }
       });
 
@@ -454,44 +462,37 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
           </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-6">
-            <Label htmlFor="default-message" className="text-base font-medium">
-              Email Message
-            </Label>
-            <p className="text-sm text-muted-foreground mb-3">
-              This message will appear in all QR code emails sent to attendees
-            </p>
-            <Textarea
-              id="default-message"
-              placeholder="Enter the email message (e.g., 'Here's your QR code for the event. Please save this image and present it at check-in.')"
-              value={defaultMessage}
-              onChange={(e) => onDefaultMessageChange?.(e.target.value)}
-              className="min-h-[80px] resize-none"
-              maxLength={500}
-            />
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-xs text-muted-foreground">
-                {defaultMessage.length}/500 characters
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onDefaultMessageChange?.("")}
-                  disabled={!defaultMessage}
-                  className="text-xs"
-                >
-                  Clear
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onDefaultMessageChange?.("Here's your QR code for the event. Please save this image and present it at check-in.")}
-                  className="text-xs"
-                >
-                  Use Default
-                </Button>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <Label htmlFor="email-subject" className="text-base font-medium">
+                Email Subject Line
+              </Label>
+              <p className="text-sm text-muted-foreground mb-3">
+                Subject line for QR code emails (use {'{attendeeName}'} for personalization)
+              </p>
+              <Input
+                id="email-subject"
+                placeholder="Your Event QR Code - {attendeeName}"
+                value={emailSubject}
+                onChange={(e) => onEmailSubjectChange?.(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <Label htmlFor="default-message" className="text-base font-medium">
+                Email Message
+              </Label>
+              <p className="text-sm text-muted-foreground mb-3">
+                This message will appear in all QR code emails sent to attendees
+              </p>
+              <Textarea
+                id="default-message"
+                placeholder="Enter the email message (e.g., 'Here's your QR code for the event. Please save this image and present it at check-in.')"
+                value={defaultMessage}
+                onChange={(e) => onDefaultMessageChange?.(e.target.value)}
+                rows={4}
+                className="w-full resize-none"
+               />
             </div>
           </div>
           <div className="rounded-md border">
