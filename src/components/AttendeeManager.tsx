@@ -166,6 +166,8 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
 
   const handleTemplateChange = (template: EmailTemplate) => {
     setEmailTemplate(template);
+    // Auto-save to localStorage on every change
+    localStorage.setItem('emailTemplate', JSON.stringify(template));
   };
 
   const handleTemplateSave = () => {
