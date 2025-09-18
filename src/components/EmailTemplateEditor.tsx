@@ -62,7 +62,7 @@ export const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
           <h2 style="color: #262883; margin: 0 0 20px 0; font-size: 24px;">${template.greeting.replace('{attendeeName}', 'John Doe')}</h2>
           
           <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
-            ${template.mainMessage}
+            ${template.mainMessage.replace(/\n/g, '<br>')}
           </p>
           
           <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f8fafc; border-radius: 12px; border: 2px dashed #e5e7eb;">

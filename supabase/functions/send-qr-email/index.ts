@@ -179,7 +179,7 @@ const handler = async (req: Request): Promise<Response> => {
               <h2 style="color: #262883; margin: 0 0 20px 0; font-size: 24px;">${personalizedTemplate.greeting}</h2>
               
               <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
-                ${personalizedTemplate.mainMessage}
+                ${personalizedTemplate.mainMessage.replace(/\n/g, '<br>')}
               </p>
               
               <!-- QR Code -->
