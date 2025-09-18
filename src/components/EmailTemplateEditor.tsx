@@ -79,7 +79,7 @@ export const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
           </div>
           
           <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 30px 0 0 0;">
-            ${template.closingMessage}
+            ${template.closingMessage.replace(/\n/g, '<br>')}
           </p>
         </div>
         
