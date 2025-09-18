@@ -54,8 +54,8 @@ export const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
   const generatePreviewHtml = () => {
     return `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
-        <div style="background: linear-gradient(135deg, #262883 0%, #4338ca 100%); color: white; padding: 30px; text-align: center;">
-          <h1 style="margin: 0; font-size: 28px; font-weight: 600;">${template.headerTitle}</h1>
+        <div style="text-align: center; padding: 0; margin: 0;">
+          <img src="/assets/email-banner.png" alt="Event Banner" style="width: 100%; max-width: 600px; height: auto; display: block; margin: 0; border-radius: 12px 12px 0 0;" />
         </div>
         
         <div style="padding: 40px 30px;">

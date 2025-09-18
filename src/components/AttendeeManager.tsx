@@ -14,6 +14,7 @@ import Papa from 'papaparse';
 import { EmailTemplateEditor, EmailTemplate, defaultTemplate } from "./EmailTemplateEditor";
 import { embedLogoInQR, composeQRWithBackground } from "@/lib/qr-canvas";
 import { useBackgroundPersistence } from "@/hooks/useBackgroundPersistence";
+import { uploadBannerToStorage } from "@/utils/uploadBanner";
 import type { Attendee } from "./EventDashboard";
 import type { LogEntry } from "./LogsView";
 
@@ -35,6 +36,9 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
+  const [bannerUploaded, setBannerUploaded] = useState<boolean>(() => {
+    return localStorage.getItem('bannerUploaded') === 'true';
+  });
   const [emailTemplate, setEmailTemplate] = useState<EmailTemplate>(() => {
     const saved = localStorage.getItem('emailTemplate');
     return saved ? JSON.parse(saved) : defaultTemplate;
@@ -182,6 +186,19 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
     }
 
     try {
+      // Upload banner if not already uploaded
+      if (!bannerUploaded) {
+        console.log('Uploading banner to storage...');
+        toast({
+          title: "Preparing Email Template",
+          description: "Uploading banner image to storage...",
+        });
+        await uploadBannerToStorage();
+        setBannerUploaded(true);
+        localStorage.setItem('bannerUploaded', 'true');
+        console.log('Banner uploaded successfully');
+      }
+
       // Log email sending attempt
       onLog?.({
         type: 'email_sent',
