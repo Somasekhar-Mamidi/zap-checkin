@@ -42,8 +42,18 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
     return localStorage.getItem('bannerUploaded') === 'true';
   });
   const [emailTemplate, setEmailTemplate] = useState<EmailTemplate>(() => {
-    const saved = localStorage.getItem('emailTemplate');
-    return saved ? JSON.parse(saved) : defaultTemplate;
+    try {
+      const saved = localStorage.getItem('emailTemplate');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        console.log('Loaded email template from localStorage:', parsed);
+        return parsed;
+      }
+    } catch (error) {
+      console.error('Failed to load email template from localStorage:', error);
+    }
+    console.log('Using default email template');
+    return defaultTemplate;
   });
   const [formData, setFormData] = useState({
     name: "",
@@ -165,9 +175,15 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
   };
 
   const handleTemplateChange = (template: EmailTemplate) => {
+    console.log('Saving email template to localStorage:', template);
     setEmailTemplate(template);
     // Auto-save to localStorage on every change
-    localStorage.setItem('emailTemplate', JSON.stringify(template));
+    try {
+      localStorage.setItem('emailTemplate', JSON.stringify(template));
+      console.log('Email template saved successfully');
+    } catch (error) {
+      console.error('Failed to save email template to localStorage:', error);
+    }
   };
 
   const handleTemplateSave = () => {
