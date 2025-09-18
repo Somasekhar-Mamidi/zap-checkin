@@ -59,7 +59,7 @@ export const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
         </div>
         
         <div style="padding: 40px 30px;">
-          <h2 style="color: #262883; margin: 0 0 20px 0; font-size: 24px;">${template.greeting.replace('{attendeeName}', 'John Doe')}</h2>
+          <h2 style="color: #0099FF; margin: 0 0 20px 0; font-size: 24px;">${template.greeting.replace('{attendeeName}', 'John Doe')}</h2>
           
           <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
             ${template.mainMessage.replace(/\n/g, '<br>')}
@@ -73,7 +73,7 @@ export const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
           
           <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 30px 0; text-align: center;">
             <p style="color: #374151; margin: 0 0 10px 0; font-size: 16px;">${template.qrInstructions}</p>
-            <p style="background: #ffffff; padding: 12px 16px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 18px; font-weight: 600; color: #262883; margin: 0; border: 1px solid #e5e7eb; letter-spacing: 1px;">
+            <p style="background: #ffffff; padding: 12px 16px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 18px; font-weight: 600; color: #0099FF; margin: 0; border: 1px solid #e5e7eb; letter-spacing: 1px;">
               SAMPLE-QR-CODE-123
             </p>
           </div>
@@ -86,7 +86,7 @@ export const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
         <div style="background-color: #f8fafc; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
           <p style="color: #6b7280; font-size: 14px; margin: 0;">
             Best regards,<br>
-            <strong style="color: #262883;">${template.senderName}</strong>
+            <strong style="color: #0099FF;">${template.senderName}</strong>
           </p>
         </div>
       </div>
