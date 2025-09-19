@@ -126,8 +126,18 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
     checkInRate: Math.round((attendees.filter(a => a.checkedIn).length / attendees.length) * 100)
   };
 
+  // Generate 4-digit alphanumeric code
+  const generateQRCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 4; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
   const addAttendee = async (attendee: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>) => {
-    const qrCode = `EVT-${Date.now()}-${attendee.name.split(' ')[0].toUpperCase()}`;
+    const qrCode = generateQRCode();
     
     try {
       const { data, error } = await supabase
@@ -180,11 +190,11 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
 
   const addBulkAttendees = async (newAttendees: Omit<Attendee, 'id' | 'checkedIn' | 'qrCode'>[]) => {
     try {
-      const attendeesToInsert = newAttendees.map((attendee, index) => ({
+      const attendeesToInsert = newAttendees.map((attendee) => ({
         name: attendee.name,
         email: attendee.email,
         phone: attendee.phone,
-        qr_code: `EVT-${Date.now() + index}-${attendee.name.split(' ')[0].toUpperCase()}`
+        qr_code: generateQRCode()
       }));
 
       const { data, error } = await supabase
