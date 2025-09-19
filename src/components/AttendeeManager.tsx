@@ -530,7 +530,16 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
                 id="default-message"
                 placeholder="Enter the email message (e.g., 'Here's your QR code for the event. Please save this image and present it at check-in.')"
                 value={defaultMessage}
-                onChange={(e) => onDefaultMessageChange?.(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  onDefaultMessageChange?.(value);
+                  // Auto-save to localStorage as backup
+                  try {
+                    localStorage.setItem('defaultMessage', value);
+                  } catch (error) {
+                    console.error('Failed to auto-save message:', error);
+                  }
+                }}
                 rows={4}
                 className="w-full resize-none"
                />

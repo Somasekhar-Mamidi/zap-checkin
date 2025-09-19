@@ -532,7 +532,10 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
               onDeleteBulkAttendees={deleteBulkAttendees}
               onLog={addLog}
               defaultMessage={defaultMessage}
-              onDefaultMessageChange={setDefaultMessage}
+              onDefaultMessageChange={(message) => {
+                setDefaultMessage(message);
+                localStorage.setItem('defaultMessage', message);
+              }}
               emailSubject={emailSubject}
               onEmailSubjectChange={(subject) => {
                 setEmailSubject(subject);
