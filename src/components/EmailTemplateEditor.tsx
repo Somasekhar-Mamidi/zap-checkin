@@ -79,7 +79,7 @@ export const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
           </div>
           
           <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 30px 0 0 0;">
-            ${template.closingMessage.replace(/\n/g, '<br>')}
+            ${template.closingMessage.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}
           </p>
         </div>
         
@@ -182,6 +182,9 @@ export const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
                   placeholder="We look forward to seeing you at the event!"
                   rows={2}
                 />
+                <p className="text-sm text-muted-foreground">
+                  Use **text** to make text bold (e.g., **Important:** will become <strong>Important:</strong>)
+                </p>
               </div>
             </TabsContent>
             

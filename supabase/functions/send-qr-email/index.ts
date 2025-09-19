@@ -196,7 +196,7 @@ const handler = async (req: Request): Promise<Response> => {
               </div>
               
               <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 30px 0 0 0;">
-                ${personalizedTemplate.closingMessage.replace(/\n/g, '<br>')}
+                ${personalizedTemplate.closingMessage.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}
               </p>
             </div>
             
