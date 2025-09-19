@@ -190,7 +190,7 @@ const handler = async (req: Request): Promise<Response> => {
               <!-- QR Code Text -->
               <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 30px 0; text-align: center;">
                 <p style="color: #052659; margin: 0 0 10px 0; font-size: 16px;">${personalizedTemplate.qrInstructions}</p>
-                <p style="background: #ffffff; padding: 12px 16px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 18px; font-weight: 600; color: #0099FF; margin: 0; border: 1px solid #e5e7eb; letter-spacing: 1px;">
+                <p style="background: #ffffff; padding: 12px 16px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 18px; font-weight: 600; color: #052659; margin: 0; border: 1px solid #e5e7eb; letter-spacing: 1px;">
                   ${attendee.qrCode}
                 </p>
               </div>
