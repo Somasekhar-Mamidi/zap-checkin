@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Mail, Phone, QrCode, Send, Upload, Trash2, Settings } from "lucide-react";
+import { Plus, Mail, Phone, QrCode, Send, Upload, Trash2, Settings, Save } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import Papa from 'papaparse';
@@ -193,6 +193,23 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
       description: "Email template has been saved successfully.",
     });
     setIsTemplateDialogOpen(false);
+};
+
+  const handleSaveDefaultMessage = () => {
+    try {
+      localStorage.setItem('defaultMessage', defaultMessage);
+      toast({
+        title: "Saved",
+        description: "Email message saved. It will persist across refreshes.",
+      });
+    } catch (error) {
+      console.error('Failed to save default message to localStorage:', error);
+      toast({
+        title: "Save failed",
+        description: "Could not save email message.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSendQR = async (attendee: Attendee) => {
@@ -497,12 +514,18 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
               />
             </div>
             <div>
-              <Label htmlFor="default-message" className="text-base font-medium">
-                Email Message
-              </Label>
-              <p className="text-sm text-muted-foreground mb-3">
-                This message will appear in all QR code emails sent to attendees
-              </p>
+<div className="flex items-center justify-between">
+  <Label htmlFor="default-message" className="text-base font-medium">
+    Email Message
+  </Label>
+  <Button size="sm" variant="outline" onClick={handleSaveDefaultMessage}>
+    <Save className="w-4 h-4 mr-2" />
+    Save
+  </Button>
+</div>
+<p className="text-sm text-muted-foreground mb-3">
+  This message will appear in all QR code emails sent to attendees
+</p>
               <Textarea
                 id="default-message"
                 placeholder="Enter the email message (e.g., 'Here's your QR code for the event. Please save this image and present it at check-in.')"

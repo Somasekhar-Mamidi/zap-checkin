@@ -29,7 +29,9 @@ const EventDashboard = () => {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [activeTab, setActiveTab] = useState("overview");
   const [isLoading, setIsLoading] = useState(true);
-  const [defaultMessage, setDefaultMessage] = useState("Here's your QR code for the event. Please save this image and present it at check-in.");
+const [defaultMessage, setDefaultMessage] = useState(() => {
+  return localStorage.getItem('defaultMessage') || "Here's your QR code for the event. Please save this image and present it at check-in.";
+});
   const [emailSubject, setEmailSubject] = useState(() => {
     return localStorage.getItem('emailSubject') || "Your Event QR Code - {attendeeName}";
   });
