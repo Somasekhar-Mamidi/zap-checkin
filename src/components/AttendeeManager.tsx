@@ -63,10 +63,10 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.phone) {
+    if (!formData.name || !formData.email) {
       toast({
         title: "Error",
-        description: "Please fill in all fields",
+        description: "Please fill in name and email fields",
         variant: "destructive"
       });
       return;
@@ -119,16 +119,16 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
           const email = findField(row, ['email', 'email address', 'email_address', 'Email', 'Email Address', 'EMAIL']);
           const phone = findField(row, ['phone', 'phone number', 'phone_number', 'Phone', 'Phone Number', 'PHONE']);
           
-          if (!name?.trim() || !email?.trim() || !phone?.trim()) {
+          if (!name?.trim() || !email?.trim()) {
             const availableFields = Object.keys(row).filter(key => row[key]?.toString().trim());
-            errors.push(`Row ${index + 1}: Missing required fields. Found columns: ${availableFields.join(', ')}`);
+            errors.push(`Row ${index + 1}: Missing required fields (name, email). Found columns: ${availableFields.join(', ')}`);
           } else if (!email.includes('@')) {
             errors.push(`Row ${index + 1}: Invalid email format - ${email}`);
           } else {
             validAttendees.push({ 
               name: name.trim(), 
               email: email.trim(), 
-              phone: phone.trim() 
+              phone: phone?.trim() || "" 
             });
           }
         });
@@ -140,7 +140,7 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
             variant: "destructive"
           });
           console.error('CSV Upload Errors:', errors);
-          console.log('Expected columns: name, email, phone (case-insensitive)');
+          console.log('Required columns: name, email (case-insensitive). Optional: phone');
           console.log('Alternative accepted names: "Full Name", "Email Address", "Phone Number"');
           return;
         }
@@ -427,7 +427,7 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
                   <div>
                     <Label htmlFor="csv-upload">Upload CSV File</Label>
                     <p className="text-sm text-muted-foreground mb-2">
-                      CSV should have columns: name, email, phone
+                      CSV should have columns: name, email (required), phone (optional)
                     </p>
                     <Input
                       id="csv-upload"
@@ -480,12 +480,12 @@ export const AttendeeManager = ({ attendees, onAddAttendee, onAddBulkAttendees, 
                     />
                   </div>
                   <div>
-                    <Label htmlFor="phone">Phone Number</Label>
+                    <Label htmlFor="phone">Phone Number (Optional)</Label>
                     <Input
                       id="phone"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="Enter phone number"
+                      placeholder="Enter phone number (optional)"
                     />
                   </div>
                   <Button type="submit" className="w-full bg-gradient-primary">
