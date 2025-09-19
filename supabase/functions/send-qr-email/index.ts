@@ -176,7 +176,7 @@ const handler = async (req: Request): Promise<Response> => {
             
             <!-- Content -->
             <div style="padding: 40px 30px;">
-              <h2 style="color: #0099FF; margin: 0 0 20px 0; font-size: 24px;">${personalizedTemplate.greeting}</h2>
+              <h2 style="color: #052659; margin: 0 0 20px 0; font-size: 24px;">${personalizedTemplate.greeting}</h2>
               
               <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
                 ${personalizedTemplate.mainMessage.replace(/\n/g, '<br>')}
@@ -184,12 +184,12 @@ const handler = async (req: Request): Promise<Response> => {
               
               <!-- QR Code -->
               <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f8fafc; border-radius: 12px; border: 2px dashed #e5e7eb;">
-                <img src="${qrPublicUrl}" alt="Your Event QR Code" style="max-width: 250px; height: auto; border: 3px solid #262883; border-radius: 12px; box-shadow: 0 4px 8px rgba(38, 40, 131, 0.2); display: block; margin: 0 auto;" />
+                <img src="${qrPublicUrl}" alt="Your Event QR Code" style="max-width: 250px; height: auto; border: 3px solid #052659; border-radius: 12px; box-shadow: 0 4px 8px rgba(5, 38, 89, 0.2); display: block; margin: 0 auto;" />
               </div>
               
               <!-- QR Code Text -->
               <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 30px 0; text-align: center;">
-                <p style="color: #374151; margin: 0 0 10px 0; font-size: 16px;">${personalizedTemplate.qrInstructions}</p>
+                <p style="color: #052659; margin: 0 0 10px 0; font-size: 16px;">${personalizedTemplate.qrInstructions}</p>
                 <p style="background: #ffffff; padding: 12px 16px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 18px; font-weight: 600; color: #0099FF; margin: 0; border: 1px solid #e5e7eb; letter-spacing: 1px;">
                   ${attendee.qrCode}
                 </p>
@@ -204,7 +204,7 @@ const handler = async (req: Request): Promise<Response> => {
             <div style="background-color: #f8fafc; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
               <p style="color: #6b7280; font-size: 14px; margin: 0;">
                 Best regards,<br>
-                <strong style="color: #0099FF;">${personalizedTemplate.senderName}</strong>
+                <strong style="color: #052659;">${personalizedTemplate.senderName}</strong>
               </p>
             </div>
             
