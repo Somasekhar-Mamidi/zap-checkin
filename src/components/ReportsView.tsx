@@ -46,11 +46,12 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
 
   const handleExportCSV = () => {
     const csvData = [
-      ['Name', 'Email', 'Phone', 'Registration Type', 'Status', 'QR Code', 'Check-In Time'],
+      ['Name', 'Email', 'Phone', 'Company', 'Registration Type', 'Status', 'QR Code', 'Check-In Time'],
       ...attendees.map(attendee => [
         attendee.name,
         attendee.email,
         attendee.phone,
+        attendee.company || '',
         (attendee.registrationType || 'pre_registered') === 'pre_registered' ? 'Pre-registered' : 'Walk-in',
         attendee.checkedIn ? 'Checked In' : 'Registered',
         attendee.qrCode || '',
@@ -106,10 +107,11 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
     
     // Table headers
     doc.text('Name', 20, yPosition);
-    doc.text('Email', 70, yPosition);
-    doc.text('Type', 120, yPosition);
-    doc.text('Status', 140, yPosition);
-    doc.text('Check-In Time', 170, yPosition);
+    doc.text('Email', 60, yPosition);
+    doc.text('Company', 100, yPosition);
+    doc.text('Type', 130, yPosition);
+    doc.text('Status', 150, yPosition);
+    doc.text('Check-In', 175, yPosition);
     yPosition += 10;
     
     // Attendee data
@@ -119,11 +121,12 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
         yPosition = 30;
       }
       
-      doc.text(attendee.name.substring(0, 20), 20, yPosition);
-      doc.text(attendee.email.substring(0, 25), 70, yPosition);
-      doc.text((attendee.registrationType || 'pre_registered') === 'pre_registered' ? 'Pre-reg' : 'Walk-in', 120, yPosition);
-      doc.text(attendee.checkedIn ? 'Checked In' : 'Registered', 140, yPosition);
-      doc.text(attendee.checkedInAt ? attendee.checkedInAt.toLocaleDateString() : 'N/A', 170, yPosition);
+      doc.text(attendee.name.substring(0, 15), 20, yPosition);
+      doc.text(attendee.email.substring(0, 20), 60, yPosition);
+      doc.text((attendee.company || '').substring(0, 12), 100, yPosition);
+      doc.text((attendee.registrationType || 'pre_registered') === 'pre_registered' ? 'Pre-reg' : 'Walk-in', 130, yPosition);
+      doc.text(attendee.checkedIn ? 'Checked In' : 'Registered', 150, yPosition);
+      doc.text(attendee.checkedInAt ? attendee.checkedInAt.toLocaleDateString() : 'N/A', 175, yPosition);
       yPosition += 8;
     });
     
@@ -250,6 +253,7 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
+                    <TableHead>Company</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Check-in Time</TableHead>
                     <TableHead>Status</TableHead>
@@ -260,6 +264,7 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
                     <TableRow key={attendee.id}>
                       <TableCell className="font-medium">{attendee.name}</TableCell>
                       <TableCell>{attendee.email}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{attendee.company || 'N/A'}</TableCell>
                       <TableCell>
                         <Badge 
                           variant="outline" 
@@ -319,6 +324,7 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
+                  <TableHead>Company</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>QR Code</TableHead>
                   <TableHead>Status</TableHead>
@@ -331,6 +337,7 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
                     <TableCell className="font-medium">{attendee.name}</TableCell>
                     <TableCell>{attendee.email}</TableCell>
                     <TableCell>{attendee.phone}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{attendee.company || 'N/A'}</TableCell>
                     <TableCell>
                       <Badge 
                         variant="outline" 

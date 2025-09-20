@@ -20,6 +20,7 @@ export interface Attendee {
   name: string;
   email: string;
   phone: string;
+  company?: string;
   checkedIn: boolean;
   checkedInAt?: Date;
   qrCode?: string;
@@ -89,6 +90,7 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
         name: attendee.name,
         email: attendee.email,
         phone: attendee.phone || '',
+        company: attendee.company || '',
         checkedIn: attendee.checked_in,
         checkedInAt: attendee.checked_in_at ? new Date(attendee.checked_in_at) : undefined,
         qrCode: attendee.qr_code || undefined,
@@ -148,6 +150,7 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
           name: attendee.name,
           email: attendee.email,
           phone: attendee.phone,
+          company: attendee.company,
           qr_code: qrCode,
           registration_type: 'pre_registered'
         })
@@ -197,6 +200,7 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
         name: attendee.name,
         email: attendee.email,
         phone: attendee.phone,
+        company: attendee.company,
         qr_code: generateQRCode(),
         registration_type: 'pre_registered'
       }));
@@ -283,7 +287,7 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
     }
   };
 
-  const addWalkInAttendee = async (attendee: { name: string; email?: string; phone?: string }) => {
+  const addWalkInAttendee = async (attendee: { name: string; email?: string; phone?: string; company?: string }) => {
     const qrCode = generateQRCode();
     
     try {
@@ -293,6 +297,7 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
           name: attendee.name,
           email: attendee.email || '',
           phone: attendee.phone || '',
+          company: attendee.company || '',
           qr_code: qrCode,
           registration_type: 'walk_in',
           checked_in: true,

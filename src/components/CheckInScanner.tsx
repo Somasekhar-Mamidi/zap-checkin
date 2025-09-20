@@ -15,7 +15,7 @@ import type { Attendee } from "./EventDashboard";
 interface CheckInScannerProps {
   attendees: Attendee[];
   onCheckIn: (qrCode: string) => void;
-  onAddWalkIn?: (attendee: { name: string; email?: string; phone?: string }) => Promise<any>;
+  onAddWalkIn?: (attendee: { name: string; email?: string; phone?: string; company?: string }) => Promise<any>;
 }
 
 export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInScannerProps) => {
@@ -26,7 +26,7 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
   const [isTorchOn, setIsTorchOn] = useState(false);
   const [currentStream, setCurrentStream] = useState<MediaStream | null>(null);
   const [showWalkInForm, setShowWalkInForm] = useState(false);
-  const [walkInData, setWalkInData] = useState({ name: '', email: '', phone: '' });
+  const [walkInData, setWalkInData] = useState({ name: '', email: '', phone: '', company: '' });
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const { toast } = useToast();
   const { isMobile, isFullscreen, requestFullscreen, exitFullscreen, vibrate } = useMobileOptimizations();
@@ -224,11 +224,12 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         await onAddWalkIn({
           name: walkInData.name.trim(),
           email: walkInData.email.trim() || undefined,
-          phone: walkInData.phone.trim() || undefined
+          phone: walkInData.phone.trim() || undefined,
+          company: walkInData.company.trim() || undefined
         });
         
         // Reset form and close dialog
-        setWalkInData({ name: '', email: '', phone: '' });
+        setWalkInData({ name: '', email: '', phone: '', company: '' });
         setShowWalkInForm(false);
       } catch (error) {
         console.error('Error adding walk-in:', error);
@@ -448,6 +449,15 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
                             value={walkInData.phone}
                             onChange={(e) => setWalkInData({ ...walkInData, phone: e.target.value })}
                             placeholder="Enter phone (optional)"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="walkInCompany">Company (Optional)</Label>
+                          <Input
+                            id="walkInCompany"
+                            value={walkInData.company}
+                            onChange={(e) => setWalkInData({ ...walkInData, company: e.target.value })}
+                            placeholder="Enter company name (optional)"
                           />
                         </div>
                         <div className="flex gap-2 justify-end">

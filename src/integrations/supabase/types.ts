@@ -57,6 +57,7 @@ export type Database = {
         Row: {
           checked_in: boolean
           checked_in_at: string | null
+          company: string | null
           created_at: string
           email: string
           id: string
@@ -69,6 +70,7 @@ export type Database = {
         Insert: {
           checked_in?: boolean
           checked_in_at?: string | null
+          company?: string | null
           created_at?: string
           email: string
           id?: string
@@ -81,6 +83,7 @@ export type Database = {
         Update: {
           checked_in?: boolean
           checked_in_at?: string | null
+          company?: string | null
           created_at?: string
           email?: string
           id?: string
