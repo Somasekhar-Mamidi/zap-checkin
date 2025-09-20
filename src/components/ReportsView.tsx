@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Users, UserCheck, Clock, TrendingUp } from "lucide-react";
+import { Download, Users, UserCheck, Clock, TrendingUp, UserPlus, QrCode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from 'jspdf';
 import type { Attendee } from "./EventDashboard";
@@ -18,7 +18,25 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
     total: attendees.length,
     checkedIn: attendees.filter(a => a.checkedIn).length,
     pending: attendees.filter(a => !a.checkedIn).length,
-    checkInRate: attendees.length > 0 ? Math.round((attendees.filter(a => a.checkedIn).length / attendees.length) * 100) : 0
+    checkInRate: attendees.length > 0 ? Math.round((attendees.filter(a => a.checkedIn).length / attendees.length) * 100) : 0,
+    
+    // Pre-registered stats
+    preRegistered: attendees.filter(a => (a.registrationType || 'pre_registered') === 'pre_registered').length,
+    preRegisteredCheckedIn: attendees.filter(a => (a.registrationType || 'pre_registered') === 'pre_registered' && a.checkedIn).length,
+    preRegisteredRate: (() => {
+      const total = attendees.filter(a => (a.registrationType || 'pre_registered') === 'pre_registered').length;
+      const checkedIn = attendees.filter(a => (a.registrationType || 'pre_registered') === 'pre_registered' && a.checkedIn).length;
+      return total > 0 ? Math.round((checkedIn / total) * 100) : 0;
+    })(),
+    
+    // Walk-in stats
+    walkIn: attendees.filter(a => a.registrationType === 'walk_in').length,
+    walkInCheckedIn: attendees.filter(a => a.registrationType === 'walk_in' && a.checkedIn).length,
+    walkInRate: (() => {
+      const total = attendees.filter(a => a.registrationType === 'walk_in').length;
+      const checkedIn = attendees.filter(a => a.registrationType === 'walk_in' && a.checkedIn).length;
+      return total > 0 ? Math.round((checkedIn / total) * 100) : 0;
+    })()
   };
 
   const recentCheckIns = attendees
@@ -28,11 +46,12 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
 
   const handleExportCSV = () => {
     const csvData = [
-      ['Name', 'Email', 'Phone', 'Status', 'QR Code', 'Check-In Time'],
+      ['Name', 'Email', 'Phone', 'Registration Type', 'Status', 'QR Code', 'Check-In Time'],
       ...attendees.map(attendee => [
         attendee.name,
         attendee.email,
         attendee.phone,
+        (attendee.registrationType || 'pre_registered') === 'pre_registered' ? 'Pre-registered' : 'Walk-in',
         attendee.checkedIn ? 'Checked In' : 'Registered',
         attendee.qrCode || '',
         attendee.checkedInAt ? attendee.checkedInAt.toLocaleString() : ''
@@ -74,16 +93,21 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
     doc.text(`Pending: ${stats.pending}`, 20, 100);
     doc.text(`Attendance Rate: ${stats.checkInRate}%`, 20, 110);
     
+    // Registration type breakdown
+    doc.text(`Pre-registered: ${stats.preRegistered} (${stats.preRegisteredCheckedIn} checked in, ${stats.preRegisteredRate}% rate)`, 20, 125);
+    doc.text(`Walk-ins: ${stats.walkIn} (${stats.walkInCheckedIn} checked in, ${stats.walkInRate}% rate)`, 20, 135);
+    
     // Attendee details
     doc.setFontSize(14);
-    doc.text('Attendee Details', 20, 130);
+    doc.text('Attendee Details', 20, 155);
     
-    let yPosition = 145;
+    let yPosition = 170;
     doc.setFontSize(10);
     
     // Table headers
     doc.text('Name', 20, yPosition);
-    doc.text('Email', 80, yPosition);
+    doc.text('Email', 70, yPosition);
+    doc.text('Type', 120, yPosition);
     doc.text('Status', 140, yPosition);
     doc.text('Check-In Time', 170, yPosition);
     yPosition += 10;
@@ -95,8 +119,9 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
         yPosition = 30;
       }
       
-      doc.text(attendee.name.substring(0, 25), 20, yPosition);
-      doc.text(attendee.email.substring(0, 30), 80, yPosition);
+      doc.text(attendee.name.substring(0, 20), 20, yPosition);
+      doc.text(attendee.email.substring(0, 25), 70, yPosition);
+      doc.text((attendee.registrationType || 'pre_registered') === 'pre_registered' ? 'Pre-reg' : 'Walk-in', 120, yPosition);
       doc.text(attendee.checkedIn ? 'Checked In' : 'Registered', 140, yPosition);
       doc.text(attendee.checkedInAt ? attendee.checkedInAt.toLocaleDateString() : 'N/A', 170, yPosition);
       yPosition += 8;
@@ -113,7 +138,7 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         <Card className="shadow-elegant">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Registered</CardTitle>
@@ -127,7 +152,29 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
 
         <Card className="shadow-elegant">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Checked In</CardTitle>
+            <CardTitle className="text-sm font-medium">Pre-registered</CardTitle>
+            <QrCode className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{stats.preRegistered}</div>
+            <p className="text-xs text-muted-foreground">{stats.preRegisteredCheckedIn} checked in ({stats.preRegisteredRate}%)</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-elegant">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Walk-ins</CardTitle>
+            <UserPlus className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">{stats.walkIn}</div>
+            <p className="text-xs text-muted-foreground">{stats.walkInCheckedIn} checked in ({stats.walkInRate}%)</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-elegant">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Checked In</CardTitle>
             <UserCheck className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
@@ -154,7 +201,7 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.checkInRate}%</div>
-            <p className="text-xs text-muted-foreground">check-in percentage</p>
+            <p className="text-xs text-muted-foreground">overall check-in rate</p>
           </CardContent>
         </Card>
       </div>
@@ -203,6 +250,7 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Check-in Time</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
@@ -212,6 +260,28 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
                     <TableRow key={attendee.id}>
                       <TableCell className="font-medium">{attendee.name}</TableCell>
                       <TableCell>{attendee.email}</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="outline" 
+                          className={
+                            (attendee.registrationType || 'pre_registered') === 'pre_registered' 
+                              ? "border-blue-500 text-blue-700" 
+                              : "border-orange-500 text-orange-700"
+                          }
+                        >
+                          {(attendee.registrationType || 'pre_registered') === 'pre_registered' ? (
+                            <>
+                              <QrCode className="w-3 h-3 mr-1" />
+                              Pre-registered
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="w-3 h-3 mr-1" />
+                              Walk-in
+                            </>
+                          )}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         {attendee.checkedInAt?.toLocaleString() || 'N/A'}
                       </TableCell>
@@ -249,6 +319,7 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>QR Code</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Check-in Time</TableHead>
@@ -260,6 +331,28 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
                     <TableCell className="font-medium">{attendee.name}</TableCell>
                     <TableCell>{attendee.email}</TableCell>
                     <TableCell>{attendee.phone}</TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant="outline" 
+                        className={
+                          (attendee.registrationType || 'pre_registered') === 'pre_registered' 
+                            ? "border-blue-500 text-blue-700" 
+                            : "border-orange-500 text-orange-700"
+                        }
+                      >
+                        {(attendee.registrationType || 'pre_registered') === 'pre_registered' ? (
+                          <>
+                            <QrCode className="w-3 h-3 mr-1" />
+                            Pre-registered
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="w-3 h-3 mr-1" />
+                            Walk-in
+                          </>
+                        )}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
                       <code className="text-xs bg-muted px-2 py-1 rounded">
                         {attendee.qrCode}

@@ -23,6 +23,7 @@ export interface Attendee {
   checkedIn: boolean;
   checkedInAt?: Date;
   qrCode?: string;
+  registrationType?: 'pre_registered' | 'walk_in';
 }
 
 const EventDashboard = () => {
@@ -90,7 +91,8 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
         phone: attendee.phone || '',
         checkedIn: attendee.checked_in,
         checkedInAt: attendee.checked_in_at ? new Date(attendee.checked_in_at) : undefined,
-        qrCode: attendee.qr_code || undefined
+        qrCode: attendee.qr_code || undefined,
+        registrationType: attendee.registration_type as 'pre_registered' | 'walk_in' || 'pre_registered'
       }));
 
       setAttendees(formattedAttendees);
@@ -146,7 +148,8 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
           name: attendee.name,
           email: attendee.email,
           phone: attendee.phone,
-          qr_code: qrCode
+          qr_code: qrCode,
+          registration_type: 'pre_registered'
         })
         .select()
         .single();
@@ -194,7 +197,8 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
         name: attendee.name,
         email: attendee.email,
         phone: attendee.phone,
-        qr_code: generateQRCode()
+        qr_code: generateQRCode(),
+        registration_type: 'pre_registered'
       }));
 
       const { data, error } = await supabase
@@ -274,6 +278,63 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
       toast({
         title: "Error",
         description: "Failed to delete attendees",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const addWalkInAttendee = async (attendee: { name: string; email?: string; phone?: string }) => {
+    const qrCode = generateQRCode();
+    
+    try {
+      const { data, error } = await supabase
+        .from('attendees')
+        .insert({
+          name: attendee.name,
+          email: attendee.email || '',
+          phone: attendee.phone || '',
+          qr_code: qrCode,
+          registration_type: 'walk_in',
+          checked_in: true,
+          checked_in_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error adding walk-in attendee:', error);
+        toast({
+          title: "Error",
+          description: "Failed to add walk-in attendee",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Reload attendees to get the latest data
+      await loadAttendees();
+      
+      // Log the walk-in registration
+      addLog({
+        type: 'registration',
+        action: 'Walk-in attendee registered',
+        user: attendee.name,
+        email: attendee.email || '',
+        details: `QR Code: ${qrCode} - Instantly checked in`,
+        status: 'success'
+      });
+
+      toast({
+        title: "Walk-in Success",
+        description: `${attendee.name} has been registered and checked in`,
+      });
+
+      return data;
+    } catch (error) {
+      console.error('Error adding walk-in attendee:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add walk-in attendee",
         variant: "destructive"
       });
     }
@@ -563,7 +624,7 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
           </TabsContent>
 
           <TabsContent value="checkin">
-            <CheckInScanner attendees={attendees} onCheckIn={checkInAttendee} />
+            <CheckInScanner attendees={attendees} onCheckIn={checkInAttendee} onAddWalkIn={addWalkInAttendee} />
           </TabsContent>
 
           <TabsContent value="reports">

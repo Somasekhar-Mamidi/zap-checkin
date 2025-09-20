@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Scan, Camera, CameraOff, UserCheck, AlertCircle, Maximize, Minimize, Flashlight, FlashlightOff } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Scan, Camera, CameraOff, UserCheck, AlertCircle, Maximize, Minimize, Flashlight, FlashlightOff, UserPlus } from "lucide-react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { useToast } from "@/hooks/use-toast";
 import { useMobileOptimizations } from "@/hooks/useMobileOptimizations";
@@ -13,15 +15,18 @@ import type { Attendee } from "./EventDashboard";
 interface CheckInScannerProps {
   attendees: Attendee[];
   onCheckIn: (qrCode: string) => void;
+  onAddWalkIn?: (attendee: { name: string; email?: string; phone?: string }) => Promise<any>;
 }
 
-export const CheckInScanner = ({ attendees, onCheckIn }: CheckInScannerProps) => {
+export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInScannerProps) => {
   const [isScanning, setIsScanning] = useState(false);
   const [manualCode, setManualCode] = useState("");
   const [lastScanned, setLastScanned] = useState<Attendee | null>(null);
   const [scannerError, setScannerError] = useState<string>("");
   const [isTorchOn, setIsTorchOn] = useState(false);
   const [currentStream, setCurrentStream] = useState<MediaStream | null>(null);
+  const [showWalkInForm, setShowWalkInForm] = useState(false);
+  const [walkInData, setWalkInData] = useState({ name: '', email: '', phone: '' });
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const { toast } = useToast();
   const { isMobile, isFullscreen, requestFullscreen, exitFullscreen, vibrate } = useMobileOptimizations();
@@ -202,6 +207,35 @@ export const CheckInScanner = ({ attendees, onCheckIn }: CheckInScannerProps) =>
     setManualCode("");
   };
 
+  const handleWalkInSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!walkInData.name.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter the attendee's name",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (onAddWalkIn) {
+      try {
+        await onAddWalkIn({
+          name: walkInData.name.trim(),
+          email: walkInData.email.trim() || undefined,
+          phone: walkInData.phone.trim() || undefined
+        });
+        
+        // Reset form and close dialog
+        setWalkInData({ name: '', email: '', phone: '' });
+        setShowWalkInForm(false);
+      } catch (error) {
+        console.error('Error adding walk-in:', error);
+      }
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (scannerRef.current) {
@@ -359,6 +393,77 @@ export const CheckInScanner = ({ attendees, onCheckIn }: CheckInScannerProps) =>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Quick Walk-in Registration */}
+            {onAddWalkIn && (
+              <Card className="shadow-elegant border-primary/20">
+                <CardHeader>
+                  <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-lg' : ''}`}>
+                    <UserPlus className={`${isMobile ? 'w-6 h-6' : 'w-5 h-5'} text-primary`} />
+                    Quick Walk-in Registration
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Register uninvited guests on the spot
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <Dialog open={showWalkInForm} onOpenChange={setShowWalkInForm}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        className={`w-full bg-gradient-primary hover:shadow-glow transition-all duration-300 ${isMobile ? 'py-4 text-lg' : ''}`}
+                      >
+                        <UserPlus className={`${isMobile ? 'w-6 h-6' : 'w-4 h-4'} mr-2`} />
+                        Add Walk-in Guest
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Quick Walk-in Registration</DialogTitle>
+                      </DialogHeader>
+                      <form onSubmit={handleWalkInSubmit} className="space-y-4">
+                        <div>
+                          <Label htmlFor="walkInName">Name *</Label>
+                          <Input
+                            id="walkInName"
+                            value={walkInData.name}
+                            onChange={(e) => setWalkInData({ ...walkInData, name: e.target.value })}
+                            placeholder="Enter guest's name"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="walkInEmail">Email (Optional)</Label>
+                          <Input
+                            id="walkInEmail"
+                            type="email"
+                            value={walkInData.email}
+                            onChange={(e) => setWalkInData({ ...walkInData, email: e.target.value })}
+                            placeholder="Enter email (optional)"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="walkInPhone">Phone (Optional)</Label>
+                          <Input
+                            id="walkInPhone"
+                            value={walkInData.phone}
+                            onChange={(e) => setWalkInData({ ...walkInData, phone: e.target.value })}
+                            placeholder="Enter phone (optional)"
+                          />
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <Button type="button" variant="outline" onClick={() => setShowWalkInForm(false)}>
+                            Cancel
+                          </Button>
+                          <Button type="submit" className="bg-gradient-primary">
+                            Register & Check In
+                          </Button>
+                        </div>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </CardContent>
+              </Card>
+            )}
 
             <Card className="shadow-elegant">
               <CardHeader>
