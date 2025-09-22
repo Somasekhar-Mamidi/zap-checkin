@@ -7,14 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { Download, UserPlus } from "lucide-react";
 
 const registrationSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Please enter a valid email").optional().or(z.literal("")),
+  email: z.string().email("Please enter a valid email"),
   phone: z.string().optional(),
   company: z.string().optional(),
 });
@@ -39,31 +38,33 @@ const SelfRegister = () => {
   const onSubmit = async (data: RegistrationForm) => {
     setIsSubmitting(true);
     try {
-      // Generate a unique 4-digit QR code
-      const qrCode = Math.floor(1000 + Math.random() * 9000).toString();
-      
-      const attendeeData = {
-        name: data.name,
-        email: data.email || "",
-        phone: data.phone || "",
-        company: data.company || "",
-        qr_code: qrCode,
-        registration_type: "walk_in",
-        checked_in: false,
-      };
+      // Call secure edge function for registration
+      const response = await fetch('https://wnlyhixhnqjyduqcwyep.supabase.co/functions/v1/self-register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: data.name,
+          email: data.email,
+          phone: data.phone || null,
+          company: data.company || null,
+        }),
+      });
 
-      const { error } = await supabase
-        .from("attendees")
-        .insert([attendeeData]);
+      const result = await response.json();
 
-      if (error) throw error;
+      if (!response.ok) {
+        toast.error(result.error || "Registration failed. Please try again.");
+        return;
+      }
 
-      setRegisteredAttendee({ name: data.name, qr_code: qrCode });
+      setRegisteredAttendee({ name: data.name, qr_code: result.qr_code });
       toast.success("Registration successful! Your QR code is ready.");
       
     } catch (error) {
       console.error("Registration error:", error);
-      toast.error("Registration failed. Please try again.");
+      toast.error("Registration failed. Please check your connection and try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -185,7 +186,7 @@ const SelfRegister = () => {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email (Optional)</FormLabel>
+                    <FormLabel>Email *</FormLabel>
                     <FormControl>
                       <Input 
                         type="email"
