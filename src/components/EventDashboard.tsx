@@ -10,6 +10,7 @@ import { ReportsView } from "./ReportsView";
 import { QRGenerator } from "./QRGenerator";
 import { LogsView, LogEntry } from "./LogsView";
 import AdminPanel from "./AdminPanel";
+import SelfRegistrationQR from "./SelfRegistrationQR";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useAccessControl } from "@/hooks/useAccessControl";
@@ -620,12 +621,15 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
             />
           </TabsContent>
 
-          <TabsContent value="qr-codes">
-            <QRGenerator 
-              attendees={attendees}
-              onLog={addLog}
-              defaultMessage={defaultMessage}
-            />
+          <TabsContent value="qr-codes" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SelfRegistrationQR />
+              <QRGenerator 
+                attendees={attendees}
+                onLog={addLog}
+                defaultMessage={defaultMessage}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="checkin">
