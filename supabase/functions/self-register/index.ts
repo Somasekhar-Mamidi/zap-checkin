@@ -87,12 +87,19 @@ serve(async (req) => {
       });
     }
 
+    if (!company || typeof company !== 'string' || company.trim().length === 0) {
+      return new Response(JSON.stringify({ error: 'Company name is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Sanitize inputs
     const sanitizedData = {
       name: name.trim().substring(0, 100),
       email: email.trim().toLowerCase().substring(0, 255),
       phone: phone?.toString().trim().substring(0, 20) || null,
-      company: company?.toString().trim().substring(0, 100) || null,
+      company: company.toString().trim().substring(0, 100),
     };
 
     // Generate secure QR code

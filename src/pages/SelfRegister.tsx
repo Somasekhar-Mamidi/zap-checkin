@@ -15,7 +15,7 @@ const registrationSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email"),
   phone: z.string().optional(),
-  company: z.string().optional(),
+  company: z.string().min(2, "Company name must be at least 2 characters"),
 });
 
 type RegistrationForm = z.infer<typeof registrationSchema>;
@@ -224,7 +224,7 @@ const SelfRegister = () => {
                 name="company"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company Name (Optional)</FormLabel>
+                    <FormLabel>Company Name *</FormLabel>
                     <FormControl>
                       <Input 
                         placeholder="Enter your company name"
