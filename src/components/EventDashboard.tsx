@@ -489,7 +489,7 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
         ) : (
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4 md:grid-cols-7' : 'grid-cols-3 md:grid-cols-6'}`}>
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4 md:grid-cols-8' : 'grid-cols-4 md:grid-cols-7'}`}>
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -501,6 +501,10 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
             <TabsTrigger value="qr-codes" className="flex items-center gap-2">
               <QrCode className="w-4 h-4" />
               <span className="hidden sm:inline">QR Codes</span>
+            </TabsTrigger>
+            <TabsTrigger value="self-registration" className="flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Self-Registration</span>
             </TabsTrigger>
             <TabsTrigger value="checkin" className="flex items-center gap-2">
               <Scan className="w-4 h-4" />
@@ -621,15 +625,16 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
             />
           </TabsContent>
 
-          <TabsContent value="qr-codes" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SelfRegistrationQR />
-              <QRGenerator 
-                attendees={attendees}
-                onLog={addLog}
-                defaultMessage={defaultMessage}
-              />
-            </div>
+          <TabsContent value="qr-codes">
+            <QRGenerator 
+              attendees={attendees}
+              onLog={addLog}
+              defaultMessage={defaultMessage}
+            />
+          </TabsContent>
+
+          <TabsContent value="self-registration">
+            <SelfRegistrationQR />
           </TabsContent>
 
           <TabsContent value="checkin">
