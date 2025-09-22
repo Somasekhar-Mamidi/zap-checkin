@@ -21,23 +21,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clear local state immediately
       setSession(null);
       setUser(null);
-      
-      // Sign out from Supabase
-      const { error } = await supabase.auth.signOut();
-      
+
+      // Best-effort: clear any persisted Supabase auth tokens
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key) continue;
+          if (key.startsWith('sb-') || key.includes('supabase')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+      } catch (e) {
+        console.warn('Unable to clear localStorage tokens:', e);
+      }
+
+      // Revoke session on server (global to be safe)
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
       if (error) {
         console.error('Error signing out:', error);
-        throw error;
       }
-      
-      // Force page reload to ensure complete logout
-      window.location.href = '/auth';
+
+      // Hard redirect to login to prevent history back-login
+      window.location.replace('/auth');
     } catch (error) {
       console.error('Sign out failed:', error);
-      // Even if there's an error, clear local state and redirect
-      setSession(null);
-      setUser(null);
-      window.location.href = '/auth';
+      // Ensure redirect even if something went wrong
+      window.location.replace('/auth');
     }
   };
 
