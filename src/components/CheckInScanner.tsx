@@ -27,11 +27,49 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
   const [currentStream, setCurrentStream] = useState<MediaStream | null>(null);
   const [showWalkInForm, setShowWalkInForm] = useState(false);
   const [walkInData, setWalkInData] = useState({ name: '', email: '', phone: '', company: '' });
+  const [processingQR, setProcessingQR] = useState<string | null>(null);
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const cooldownMapRef = useRef<Map<string, number>>(new Map());
   const { toast } = useToast();
   const { isMobile, isFullscreen, requestFullscreen, exitFullscreen, vibrate } = useMobileOptimizations();
 
+  // Cooldown period in milliseconds (3 seconds)
+  const COOLDOWN_PERIOD = 3000;
+
   const handleScanSuccess = async (decodedText: string) => {
+    const now = Date.now();
+    const lastScanTime = cooldownMapRef.current.get(decodedText);
+
+    // Check if this QR code was scanned recently (within cooldown period)
+    if (lastScanTime && now - lastScanTime < COOLDOWN_PERIOD) {
+      // Show cooldown feedback
+      if (processingQR !== decodedText) {
+        setProcessingQR(decodedText);
+        const remainingTime = Math.ceil((COOLDOWN_PERIOD - (now - lastScanTime)) / 1000);
+        toast({
+          title: "Please Wait",
+          description: `QR code recently scanned. Wait ${remainingTime}s before next scan.`,
+          variant: "default"
+        });
+        
+        // Clear processing state after a short delay
+        setTimeout(() => setProcessingQR(null), 1500);
+      }
+      return;
+    }
+
+    // Set cooldown for this QR code
+    cooldownMapRef.current.set(decodedText, now);
+    setProcessingQR(decodedText);
+
+    // Clean up old entries (keep only last 50 entries to prevent memory bloat)
+    if (cooldownMapRef.current.size > 50) {
+      const entries = Array.from(cooldownMapRef.current.entries());
+      const cutoff = now - COOLDOWN_PERIOD * 2; // Keep entries for 2x cooldown period
+      const validEntries = entries.filter(([, timestamp]) => timestamp > cutoff);
+      cooldownMapRef.current = new Map(validEntries.slice(-30)); // Keep only 30 most recent
+    }
+
     const attendee = attendees.find(a => a.qrCode === decodedText);
     
     // Mobile feedback
@@ -40,7 +78,6 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
     }
     
     if (attendee) {
-      // Always allow check-in (supports plus one guests)
       try {
         const result = await onCheckIn(decodedText);
         
@@ -55,14 +92,15 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
           if (isMobile) {
             vibrate([100]); // Success vibration pattern
           }
-          
-          // Toast is already handled in the onCheckIn function
         }
       } catch (error) {
         console.error('Check-in error:', error);
         if (isMobile) {
           vibrate([200, 100, 200]); // Error vibration pattern
         }
+      } finally {
+        // Clear processing state after successful/failed check-in
+        setTimeout(() => setProcessingQR(null), 1000);
       }
     } else {
       if (isMobile) {
@@ -73,6 +111,7 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         description: "This QR code is not registered for this event",
         variant: "destructive"
       });
+      setTimeout(() => setProcessingQR(null), 1000);
     }
   };
 
@@ -192,10 +231,15 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         setIsScanning(false);
         setScannerError("");
         setIsTorchOn(false);
+        setProcessingQR(null);
+        // Clear cooldown map when stopping scanner
+        cooldownMapRef.current.clear();
       }).catch((error) => {
         console.error("Error stopping scanner:", error);
         setIsScanning(false);
         setIsTorchOn(false);
+        setProcessingQR(null);
+        cooldownMapRef.current.clear();
       });
     }
   };
@@ -278,20 +322,30 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
           </CardHeader>
             <CardContent className="space-y-4">
               <div className="text-center">
-                <div className={`bg-accent/20 rounded-lg mb-4 ${isFullscreen ? 'p-2' : 'p-6'}`}>
-                  <div id="qr-reader" className={isScanning ? "" : "hidden"}></div>
-                  {!isScanning && (
-                    <div className={`flex flex-col items-center ${isFullscreen ? 'space-y-6 py-8' : 'space-y-4'}`}>
-                      <Camera className={`text-muted-foreground ${isMobile ? 'w-20 h-20' : 'w-16 h-16'}`} />
-                      <p className={`text-muted-foreground ${isMobile ? 'text-lg' : ''}`}>
-                        {isMobile ? 'Tap "Start Scanner" to scan QR codes' : 'Click "Start Scanner" to begin scanning QR codes with your camera'}
-                      </p>
-                      <p className={`text-muted-foreground ${isMobile ? 'text-sm' : 'text-xs'}`}>
-                        {isMobile ? 'Allow camera access when prompted' : 'Make sure to allow camera permissions when prompted'}
-                      </p>
-                    </div>
-                  )}
-                </div>
+                 <div className={`bg-accent/20 rounded-lg mb-4 ${isFullscreen ? 'p-2' : 'p-6'}`}>
+                   <div id="qr-reader" className={isScanning ? "" : "hidden"}></div>
+                   {!isScanning && (
+                     <div className={`flex flex-col items-center ${isFullscreen ? 'space-y-6 py-8' : 'space-y-4'}`}>
+                       <Camera className={`text-muted-foreground ${isMobile ? 'w-20 h-20' : 'w-16 h-16'}`} />
+                       <p className={`text-muted-foreground ${isMobile ? 'text-lg' : ''}`}>
+                         {isMobile ? 'Tap "Start Scanner" to scan QR codes' : 'Click "Start Scanner" to begin scanning QR codes with your camera'}
+                       </p>
+                       <p className={`text-muted-foreground ${isMobile ? 'text-sm' : 'text-xs'}`}>
+                         {isMobile ? 'Allow camera access when prompted' : 'Make sure to allow camera permissions when prompted'}
+                       </p>
+                     </div>
+                   )}
+                   
+                   {/* Processing indicator */}
+                   {processingQR && isScanning && (
+                     <div className="absolute inset-0 bg-primary/20 rounded-lg flex items-center justify-center">
+                       <div className="bg-background/90 rounded-lg p-4 text-center">
+                         <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
+                         <p className="text-sm font-medium">Processing scan...</p>
+                       </div>
+                     </div>
+                   )}
+                 </div>
                 
                 {scannerError && (
                   <Alert className="mb-4">
