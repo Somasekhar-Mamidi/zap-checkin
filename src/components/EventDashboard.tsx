@@ -26,12 +26,16 @@ export interface Attendee {
   checkedInAt?: Date;
   qrCode?: string;
   registrationType?: 'pre_registered' | 'walk_in';
+  // Plus one guest properties (used for UI display)
+  guestType?: string;
+  checkinNumber?: number;
 }
 
 const EventDashboard = () => {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [activeTab, setActiveTab] = useState("overview");
   const [isLoading, setIsLoading] = useState(true);
+  const [checkinInstances, setCheckinInstances] = useState<any[]>([]);
 const [defaultMessage, setDefaultMessage] = useState(() => {
   return localStorage.getItem('defaultMessage') || "Here's your QR code for the event. Please save this image and present it at check-in.";
 });
@@ -99,6 +103,16 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
       }));
 
       setAttendees(formattedAttendees);
+      
+      // Also load check-in instances for plus one guest tracking
+      const { data: instances, error: instancesError } = await supabase
+        .from('checkin_instances')
+        .select('*')
+        .order('checked_in_at', { ascending: false });
+        
+      if (!instancesError) {
+        setCheckinInstances(instances || []);
+      }
     } catch (error) {
       console.error('Error loading attendees:', error);
       toast({
@@ -128,7 +142,10 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
     total: attendees.length,
     checkedIn: attendees.filter(a => a.checkedIn).length,
     pending: attendees.filter(a => !a.checkedIn).length,
-    checkInRate: Math.round((attendees.filter(a => a.checkedIn).length / attendees.length) * 100)
+    checkInRate: Math.round((attendees.filter(a => a.checkedIn).length / attendees.length) * 100),
+    totalCheckIns: checkinInstances.length,
+    plusGuests: checkinInstances.filter(i => i.guest_type !== 'original').length,
+    originalGuests: checkinInstances.filter(i => i.guest_type === 'original').length
   };
 
   // Generate 4-digit alphanumeric code
@@ -351,18 +368,31 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
     
     if (attendee) {
       try {
-        const { data, error } = await supabase
-          .from('attendees')
-          .update({
-            checked_in: true,
-            checked_in_at: new Date().toISOString()
+        // First, get the current check-in count for this QR code
+        const { data: countData } = await supabase
+          .rpc('get_checkin_count_for_qr', { qr_code_param: qrCode });
+        
+        const nextCheckinNumber = (countData || 0) + 1;
+        const guestType = nextCheckinNumber === 1 ? 'original' : 
+                         nextCheckinNumber === 2 ? 'plus_one' :
+                         nextCheckinNumber === 3 ? 'plus_two' :
+                         nextCheckinNumber === 4 ? 'plus_three' :
+                         `plus_${nextCheckinNumber - 1}`;
+
+        // Create a new check-in instance
+        const { data: checkinData, error: checkinError } = await supabase
+          .from('checkin_instances')
+          .insert({
+            attendee_id: attendee.id,
+            qr_code: qrCode,
+            checkin_number: nextCheckinNumber,
+            guest_type: guestType
           })
-          .eq('qr_code', qrCode)
           .select()
           .single();
 
-        if (error) {
-          console.error('Error checking in attendee:', error);
+        if (checkinError) {
+          console.error('Error creating check-in instance:', checkinError);
           toast({
             title: "Error",
             description: "Failed to check in attendee",
@@ -371,23 +401,51 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
           return;
         }
 
+        // Update the attendee record only if this is the first check-in
+        if (nextCheckinNumber === 1) {
+          const { error: updateError } = await supabase
+            .from('attendees')
+            .update({
+              checked_in: true,
+              checked_in_at: new Date().toISOString()
+            })
+            .eq('id', attendee.id);
+
+          if (updateError) {
+            console.error('Error updating attendee:', updateError);
+          }
+        }
+
         // Reload attendees to get the latest data
         await loadAttendees();
         
-        // Log the check-in
+        // Create appropriate log entry and toast message
+        const isOriginal = nextCheckinNumber === 1;
+        const guestLabel = isOriginal ? 'Original Guest' : 
+                          nextCheckinNumber === 2 ? 'Plus One Guest' :
+                          nextCheckinNumber === 3 ? 'Plus Two Guest' :
+                          `Plus ${nextCheckinNumber - 1} Guest`;
+
         addLog({
           type: 'checkin',
-          action: 'Attendee checked in',
+          action: `${guestLabel} checked in`,
           user: attendee.name,
           email: attendee.email,
-          details: `QR Code: ${qrCode}`,
+          details: `QR Code: ${qrCode} - Check-in #${nextCheckinNumber}`,
           status: 'success'
         });
 
+        const toastTitle = isOriginal ? "Check-In Successful" : `${guestLabel} Check-In`;
+        const toastDescription = isOriginal 
+          ? `${attendee.name} has been checked in`
+          : `${guestLabel} for ${attendee.name} has been checked in`;
+
         toast({
-          title: "Check-In Successful",
-          description: `${attendee.name} has been checked in`,
+          title: toastTitle,
+          description: toastDescription,
         });
+
+        return { guestType, checkinNumber: nextCheckinNumber, attendeeName: attendee.name };
       } catch (error) {
         console.error('Error checking in attendee:', error);
         toast({
@@ -403,6 +461,12 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
         action: 'Check-in attempt failed',
         details: `Invalid QR Code: ${qrCode}`,
         status: 'error'
+      });
+      
+      toast({
+        title: "Invalid QR Code",
+        description: "This QR code is not registered for this event",
+        variant: "destructive"
       });
     }
   };
@@ -570,6 +634,42 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
                 <CardContent>
                   <div className="text-2xl font-bold">{stats.checkInRate}%</div>
                   <p className="text-xs text-muted-foreground">overall attendance</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Plus One Guest Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="shadow-elegant">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Check-ins</CardTitle>
+                  <UserCheck className="h-4 w-4 text-info" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-info">{stats.totalCheckIns}</div>
+                  <p className="text-xs text-muted-foreground">including plus guests</p>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-elegant">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Original Guests</CardTitle>
+                  <Users className="h-4 w-4 text-success" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-success">{stats.originalGuests}</div>
+                  <p className="text-xs text-muted-foreground">first-time check-ins</p>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-elegant">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Plus Guests</CardTitle>
+                  <Users className="h-4 w-4 text-accent" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-accent">{stats.plusGuests}</div>
+                  <p className="text-xs text-muted-foreground">additional guests</p>
                 </CardContent>
               </Card>
             </div>

@@ -95,6 +95,44 @@ export type Database = {
         }
         Relationships: []
       }
+      checkin_instances: {
+        Row: {
+          attendee_id: string
+          checked_in_at: string
+          checkin_number: number
+          created_at: string
+          guest_type: string
+          id: string
+          qr_code: string
+        }
+        Insert: {
+          attendee_id: string
+          checked_in_at?: string
+          checkin_number?: number
+          created_at?: string
+          guest_type?: string
+          id?: string
+          qr_code: string
+        }
+        Update: {
+          attendee_id?: string
+          checked_in_at?: string
+          checkin_number?: number
+          created_at?: string
+          guest_type?: string
+          id?: string
+          qr_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkin_instances_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invited_users: {
         Row: {
           email: string
@@ -175,6 +213,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_checkin_count_for_qr: {
+        Args: { qr_code_param: string }
+        Returns: number
+      }
+      get_guest_type: {
+        Args: { checkin_num: number }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

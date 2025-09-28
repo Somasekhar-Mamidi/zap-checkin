@@ -14,7 +14,7 @@ import type { Attendee } from "./EventDashboard";
 
 interface CheckInScannerProps {
   attendees: Attendee[];
-  onCheckIn: (qrCode: string) => void;
+  onCheckIn: (qrCode: string) => Promise<{ guestType: string; checkinNumber: number; attendeeName: string } | undefined>;
   onAddWalkIn?: (attendee: { name: string; email?: string; phone?: string; company?: string }) => Promise<any>;
 }
 
@@ -31,7 +31,7 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
   const { toast } = useToast();
   const { isMobile, isFullscreen, requestFullscreen, exitFullscreen, vibrate } = useMobileOptimizations();
 
-  const handleScanSuccess = (decodedText: string) => {
+  const handleScanSuccess = async (decodedText: string) => {
     const attendee = attendees.find(a => a.qrCode === decodedText);
     
     // Mobile feedback
@@ -40,22 +40,29 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
     }
     
     if (attendee) {
-      if (attendee.checkedIn) {
+      // Always allow check-in (supports plus one guests)
+      try {
+        const result = await onCheckIn(decodedText);
+        
+        if (result) {
+          setLastScanned({
+            ...attendee,
+            guestType: result.guestType,
+            checkinNumber: result.checkinNumber
+          });
+          
+          // Success vibration for mobile
+          if (isMobile) {
+            vibrate([100]); // Success vibration pattern
+          }
+          
+          // Toast is already handled in the onCheckIn function
+        }
+      } catch (error) {
+        console.error('Check-in error:', error);
         if (isMobile) {
           vibrate([200, 100, 200]); // Error vibration pattern
         }
-        toast({
-          title: "Already Checked In",
-          description: `${attendee.name} was already checked in`,
-          variant: "destructive"
-        });
-      } else {
-        onCheckIn(decodedText);
-        setLastScanned(attendee);
-        toast({
-          title: "Check-In Successful!",
-          description: `${attendee.name} has been checked in`,
-        });
       }
     } else {
       if (isMobile) {
