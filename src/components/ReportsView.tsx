@@ -7,11 +7,21 @@ import { useToast } from "@/hooks/use-toast";
 import jsPDF from 'jspdf';
 import type { Attendee } from "./EventDashboard";
 
-interface ReportsViewProps {
-  attendees: Attendee[];
+interface CheckinInstance {
+  id: string;
+  attendee_id: string;
+  checkin_number: number;
+  guest_type: string;
+  checked_in_at: string;
+  qr_code: string;
 }
 
-export const ReportsView = ({ attendees }: ReportsViewProps) => {
+interface ReportsViewProps {
+  attendees: Attendee[];
+  checkinInstances: CheckinInstance[];
+}
+
+export const ReportsView = ({ attendees, checkinInstances }: ReportsViewProps) => {
   const { toast } = useToast();
 
   const stats = {
@@ -36,16 +46,37 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
       const total = attendees.filter(a => a.registrationType === 'walk_in').length;
       const checkedIn = attendees.filter(a => a.registrationType === 'walk_in' && a.checkedIn).length;
       return total > 0 ? Math.round((checkedIn / total) * 100) : 0;
-    })()
+    })(),
+    
+    // Plus guest stats
+    totalCheckIns: checkinInstances.length,
+    originalGuests: checkinInstances.filter(i => i.guest_type === 'original').length,
+    plusOneGuests: checkinInstances.filter(i => i.guest_type === 'plus_one').length,
+    plusTwoGuests: checkinInstances.filter(i => i.guest_type === 'plus_two').length,
+    plusThreeGuests: checkinInstances.filter(i => i.guest_type === 'plus_three').length,
+    totalPlusGuests: checkinInstances.filter(i => i.guest_type !== 'original').length,
+    averageGuestsPerQR: checkinInstances.length > 0 ? 
+      Math.round((checkinInstances.length / new Set(checkinInstances.map(i => i.qr_code)).size) * 10) / 10 : 0,
+    uniqueQRsWithPlusGuests: new Set(checkinInstances.filter(i => i.guest_type !== 'original').map(i => i.qr_code)).size
   };
 
-  const recentCheckIns = attendees
-    .filter(a => a.checkedIn && a.checkedInAt)
-    .sort((a, b) => (b.checkedInAt?.getTime() || 0) - (a.checkedInAt?.getTime() || 0))
-    .slice(0, 10);
+  const recentCheckIns = checkinInstances
+    .sort((a, b) => new Date(b.checked_in_at).getTime() - new Date(a.checked_in_at).getTime())
+    .slice(0, 10)
+    .map(instance => {
+      const attendee = attendees.find(a => a.id === instance.attendee_id);
+      return {
+        ...instance,
+        attendeeName: attendee?.name || 'Unknown',
+        attendeeEmail: attendee?.email || 'Unknown',
+        attendeeCompany: attendee?.company || 'N/A'
+      };
+    });
 
   const handleExportCSV = () => {
-    const csvData = [
+    // Main attendees data
+    const attendeesData = [
+      ['=== ATTENDEES ==='],
       ['Name', 'Email', 'Phone', 'Company', 'Registration Type', 'Status', 'QR Code', 'Check-In Time'],
       ...attendees.map(attendee => [
         attendee.name,
@@ -56,20 +87,45 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
         attendee.checkedIn ? 'Checked In' : 'Registered',
         attendee.qrCode || '',
         attendee.checkedInAt ? attendee.checkedInAt.toLocaleString() : ''
-      ])
+      ]),
+      [''],
+      ['=== CHECK-IN INSTANCES (Including Plus Guests) ==='],
+      ['Original Attendee', 'Guest Type', 'Check-in Number', 'QR Code', 'Check-In Time'],
+      ...checkinInstances.map(instance => {
+        const attendee = attendees.find(a => a.id === instance.attendee_id);
+        return [
+          attendee?.name || 'Unknown',
+          instance.guest_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          instance.checkin_number.toString(),
+          instance.qr_code,
+          new Date(instance.checked_in_at).toLocaleString()
+        ];
+      }),
+      [''],
+      ['=== SUMMARY STATISTICS ==='],
+      ['Metric', 'Value'],
+      ['Total Registered', stats.total.toString()],
+      ['Total Check-ins (including plus guests)', stats.totalCheckIns.toString()],
+      ['Original Guests', stats.originalGuests.toString()],
+      ['Plus One Guests', stats.plusOneGuests.toString()],
+      ['Plus Two Guests', stats.plusTwoGuests.toString()],
+      ['Plus Three+ Guests', stats.plusThreeGuests.toString()],
+      ['Total Plus Guests', stats.totalPlusGuests.toString()],
+      ['Average Guests per QR Code', stats.averageGuestsPerQR.toString()],
+      ['QR Codes with Plus Guests', stats.uniqueQRsWithPlusGuests.toString()]
     ];
 
-    const csvContent = csvData.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    const csvContent = attendeesData.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `event-report-${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `event-report-plus-guests-${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
     
     toast({
-      title: "Report Exported!",
-      description: "Event report has been downloaded as CSV",
+      title: "Enhanced Report Exported!",
+      description: "Event report with plus guest data has been downloaded as CSV",
     });
   };
 
@@ -79,7 +135,7 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
     
     // Title
     doc.setFontSize(20);
-    doc.text('Event Attendance Report', 20, 30);
+    doc.text('Event Attendance Report with Plus Guests', 20, 30);
     
     // Date
     doc.setFontSize(12);
@@ -87,61 +143,70 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
     
     // Summary statistics
     doc.setFontSize(14);
-    doc.text('Summary', 20, 65);
+    doc.text('Summary Statistics', 20, 65);
     doc.setFontSize(11);
     doc.text(`Total Registered: ${stats.total}`, 20, 80);
-    doc.text(`Checked In: ${stats.checkedIn}`, 20, 90);
-    doc.text(`Pending: ${stats.pending}`, 20, 100);
-    doc.text(`Attendance Rate: ${stats.checkInRate}%`, 20, 110);
+    doc.text(`Total Check-ins (all guests): ${stats.totalCheckIns}`, 20, 90);
+    doc.text(`Original Guests: ${stats.originalGuests}`, 20, 100);
+    doc.text(`Plus One Guests: ${stats.plusOneGuests}`, 20, 110);
+    doc.text(`Plus Two Guests: ${stats.plusTwoGuests}`, 20, 120);
+    doc.text(`Plus Three+ Guests: ${stats.plusThreeGuests}`, 20, 130);
+    doc.text(`Total Plus Guests: ${stats.totalPlusGuests}`, 20, 140);
+    doc.text(`Average Guests per QR: ${stats.averageGuestsPerQR}`, 20, 150);
     
     // Registration type breakdown
-    doc.text(`Pre-registered: ${stats.preRegistered} (${stats.preRegisteredCheckedIn} checked in, ${stats.preRegisteredRate}% rate)`, 20, 125);
-    doc.text(`Walk-ins: ${stats.walkIn} (${stats.walkInCheckedIn} checked in, ${stats.walkInRate}% rate)`, 20, 135);
+    doc.text(`Pre-registered: ${stats.preRegistered} (${stats.preRegisteredCheckedIn} checked in, ${stats.preRegisteredRate}% rate)`, 20, 165);
+    doc.text(`Walk-ins: ${stats.walkIn} (${stats.walkInCheckedIn} checked in, ${stats.walkInRate}% rate)`, 20, 175);
     
-    // Attendee details
+    // Plus Guest Insights
     doc.setFontSize(14);
-    doc.text('Attendee Details', 20, 155);
+    doc.text('Plus Guest Insights', 20, 195);
+    doc.setFontSize(11);
+    doc.text(`QR Codes with Plus Guests: ${stats.uniqueQRsWithPlusGuests}`, 20, 210);
+    doc.text(`QR Code Sharing Rate: ${stats.total > 0 ? Math.round((stats.uniqueQRsWithPlusGuests / stats.total) * 100) : 0}%`, 20, 220);
     
-    let yPosition = 170;
+    // New page for detailed check-ins
+    doc.addPage();
+    doc.setFontSize(14);
+    doc.text('All Check-in Instances', 20, 30);
+    
+    let yPosition = 50;
     doc.setFontSize(10);
     
     // Table headers
-    doc.text('Name', 20, yPosition);
-    doc.text('Email', 60, yPosition);
-    doc.text('Company', 100, yPosition);
-    doc.text('Type', 130, yPosition);
-    doc.text('Status', 150, yPosition);
-    doc.text('Check-In', 175, yPosition);
+    doc.text('Attendee', 20, yPosition);
+    doc.text('Guest Type', 70, yPosition);
+    doc.text('QR Code', 120, yPosition);
+    doc.text('Check-In Time', 150, yPosition);
     yPosition += 10;
     
-    // Attendee data
-    attendees.forEach((attendee, index) => {
+    // Check-in instance data
+    checkinInstances.forEach((instance, index) => {
       if (yPosition > 270) {
         doc.addPage();
         yPosition = 30;
       }
       
-      doc.text(attendee.name.substring(0, 15), 20, yPosition);
-      doc.text(attendee.email.substring(0, 20), 60, yPosition);
-      doc.text((attendee.company || '').substring(0, 12), 100, yPosition);
-      doc.text((attendee.registrationType || 'pre_registered') === 'pre_registered' ? 'Pre-reg' : 'Walk-in', 130, yPosition);
-      doc.text(attendee.checkedIn ? 'Checked In' : 'Registered', 150, yPosition);
-      doc.text(attendee.checkedInAt ? attendee.checkedInAt.toLocaleDateString() : 'N/A', 175, yPosition);
+      const attendee = attendees.find(a => a.id === instance.attendee_id);
+      doc.text((attendee?.name || 'Unknown').substring(0, 20), 20, yPosition);
+      doc.text(instance.guest_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()), 70, yPosition);
+      doc.text(instance.qr_code, 120, yPosition);
+      doc.text(new Date(instance.checked_in_at).toLocaleDateString(), 150, yPosition);
       yPosition += 8;
     });
     
-    doc.save(`event-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`event-report-plus-guests-${new Date().toISOString().split('T')[0]}.pdf`);
     
     toast({
-      title: "PDF Report Exported!",
-      description: "Event report has been downloaded as PDF",
+      title: "Enhanced PDF Report Exported!",
+      description: "Event report with plus guest analytics has been downloaded as PDF",
     });
   };
 
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
         <Card className="shadow-elegant">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Registered</CardTitle>
@@ -209,6 +274,55 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
         </Card>
       </div>
 
+      {/* Plus Guest Analytics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="shadow-elegant">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Check-ins</CardTitle>
+            <UserCheck className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{stats.totalCheckIns}</div>
+            <p className="text-xs text-muted-foreground">including plus guests</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-elegant">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Plus Guests</CardTitle>
+            <Users className="h-4 w-4 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">{stats.totalPlusGuests}</div>
+            <p className="text-xs text-muted-foreground">
+              +1: {stats.plusOneGuests}, +2: {stats.plusTwoGuests}, +3+: {stats.plusThreeGuests}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-elegant">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg Guests/QR</CardTitle>
+            <QrCode className="h-4 w-4 text-indigo-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-indigo-600">{stats.averageGuestsPerQR}</div>
+            <p className="text-xs text-muted-foreground">per QR code</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-elegant">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">QR Sharing</CardTitle>
+            <Users className="h-4 w-4 text-amber-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-amber-600">{stats.uniqueQRsWithPlusGuests}</div>
+            <p className="text-xs text-muted-foreground">QRs with plus guests</p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Export Actions */}
       <Card className="shadow-elegant">
         <CardHeader>
@@ -237,12 +351,12 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
         </CardContent>
       </Card>
 
-      {/* Recent Check-ins */}
+      {/* Recent Check-ins (Including Plus Guests) */}
       <Card className="shadow-elegant">
         <CardHeader>
           <CardTitle>Recent Check-ins</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Latest attendee check-ins
+            Latest check-ins including plus guests
           </p>
         </CardHeader>
         <CardContent>
@@ -251,48 +365,46 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead>Original Attendee</TableHead>
+                    <TableHead>Guest Type</TableHead>
+                    <TableHead>QR Code</TableHead>
                     <TableHead>Check-in Time</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {recentCheckIns.map((attendee) => (
-                    <TableRow key={attendee.id}>
-                      <TableCell className="font-medium">{attendee.name}</TableCell>
-                      <TableCell>{attendee.email}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{attendee.company || 'N/A'}</TableCell>
+                  {recentCheckIns.map((instance) => (
+                    <TableRow key={instance.id}>
+                      <TableCell className="font-medium">{instance.attendeeName}</TableCell>
                       <TableCell>
                         <Badge 
                           variant="outline" 
                           className={
-                            (attendee.registrationType || 'pre_registered') === 'pre_registered' 
-                              ? "border-blue-500 text-blue-700" 
-                              : "border-orange-500 text-orange-700"
+                            instance.guest_type === 'original' 
+                              ? "border-green-500 text-green-700" 
+                              : instance.guest_type === 'plus_one'
+                              ? "border-blue-500 text-blue-700"
+                              : instance.guest_type === 'plus_two'
+                              ? "border-purple-500 text-purple-700"
+                              : "border-amber-500 text-amber-700"
                           }
                         >
-                          {(attendee.registrationType || 'pre_registered') === 'pre_registered' ? (
-                            <>
-                              <QrCode className="w-3 h-3 mr-1" />
-                              Pre-registered
-                            </>
-                          ) : (
-                            <>
-                              <UserPlus className="w-3 h-3 mr-1" />
-                              Walk-in
-                            </>
-                          )}
+                          {instance.guest_type === 'original' && <UserCheck className="w-3 h-3 mr-1" />}
+                          {instance.guest_type !== 'original' && <Users className="w-3 h-3 mr-1" />}
+                          {instance.guest_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {attendee.checkedInAt?.toLocaleString() || 'N/A'}
+                        <code className="text-xs bg-muted px-2 py-1 rounded">
+                          {instance.qr_code}
+                        </code>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(instance.checked_in_at).toLocaleString()}
                       </TableCell>
                       <TableCell>
                         <Badge className="bg-success text-success-foreground">
-                          Checked In
+                          Checked In #{instance.checkin_number}
                         </Badge>
                       </TableCell>
                     </TableRow>
@@ -305,6 +417,100 @@ export const ReportsView = ({ attendees }: ReportsViewProps) => {
               No check-ins yet
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Plus Guest Analysis Table */}
+      <Card className="shadow-elegant">
+        <CardHeader>
+          <CardTitle>Plus Guest Analysis</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            QR codes with multiple check-ins
+          </p>
+        </CardHeader>
+        <CardContent>
+          {(() => {
+            const qrCodeStats = checkinInstances.reduce((acc, instance) => {
+              if (!acc[instance.qr_code]) {
+                const attendee = attendees.find(a => a.id === instance.attendee_id);
+                acc[instance.qr_code] = {
+                  qr_code: instance.qr_code,
+                  attendeeName: attendee?.name || 'Unknown',
+                  attendeeEmail: attendee?.email || 'Unknown',
+                  totalCheckins: 0,
+                  plusGuests: 0,
+                  guestTypes: []
+                };
+              }
+              acc[instance.qr_code].totalCheckins++;
+              if (instance.guest_type !== 'original') {
+                acc[instance.qr_code].plusGuests++;
+              }
+              acc[instance.qr_code].guestTypes.push(instance.guest_type);
+              return acc;
+            }, {} as Record<string, any>);
+
+            const multipleCheckIns = Object.values(qrCodeStats).filter((stat: any) => stat.totalCheckins > 1);
+
+            return multipleCheckIns.length > 0 ? (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>QR Code</TableHead>
+                      <TableHead>Original Attendee</TableHead>
+                      <TableHead>Total Check-ins</TableHead>
+                      <TableHead>Plus Guests</TableHead>
+                      <TableHead>Guest Types</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {multipleCheckIns.map((stat: any) => (
+                      <TableRow key={stat.qr_code}>
+                        <TableCell>
+                          <code className="text-xs bg-muted px-2 py-1 rounded">
+                            {stat.qr_code}
+                          </code>
+                        </TableCell>
+                        <TableCell className="font-medium">{stat.attendeeName}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{stat.totalCheckins}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{stat.plusGuests}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 flex-wrap">
+                            {stat.guestTypes.map((type: string, index: number) => (
+                              <Badge 
+                                key={index}
+                                variant="outline" 
+                                className={
+                                  type === 'original' 
+                                    ? "border-green-500 text-green-700 text-xs" 
+                                    : type === 'plus_one'
+                                    ? "border-blue-500 text-blue-700 text-xs"
+                                    : type === 'plus_two'
+                                    ? "border-purple-500 text-purple-700 text-xs"
+                                    : "border-amber-500 text-amber-700 text-xs"
+                                }
+                              >
+                                {type.replace('_', ' ')}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No QR codes have been used for plus guests yet
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 

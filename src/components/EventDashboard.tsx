@@ -742,7 +742,7 @@ const [defaultMessage, setDefaultMessage] = useState(() => {
           </TabsContent>
 
           <TabsContent value="reports">
-            <ReportsView attendees={attendees} />
+            <ReportsView attendees={attendees} checkinInstances={checkinInstances} />
           </TabsContent>
 
           <TabsContent value="logs">
