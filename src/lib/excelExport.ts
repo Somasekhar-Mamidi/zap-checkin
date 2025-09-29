@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import type { Attendee } from '@/components/EventDashboard';
 
 interface ExcelExportOptions {
@@ -28,31 +28,23 @@ export const exportAttendeesToExcel = async (
       : attendees;
 
     // Create a new workbook
-    const workbook = XLSX.utils.book_new();
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Event QR Generator';
+    workbook.lastModifiedBy = 'Event QR Generator';
+    workbook.created = new Date();
+    workbook.modified = new Date();
 
     // Create main data sheet
-    const mainSheetData = await createMainSheetData(filteredAttendees, qrImages, options);
-    const mainSheet = XLSX.utils.aoa_to_sheet(mainSheetData);
-    
-    // Add styling and formatting to main sheet
-    formatMainSheet(mainSheet, filteredAttendees.length);
-    
-    XLSX.utils.book_append_sheet(workbook, mainSheet, 'Attendee QR Codes');
+    await createMainSheet(workbook, filteredAttendees, qrImages, options);
 
     // Create QR codes only sheet if images are included
     if (options.includeQRImages) {
-      const qrSheetData = createQROnlySheetData(filteredAttendees, qrImages);
-      const qrSheet = XLSX.utils.aoa_to_sheet(qrSheetData);
-      formatQRSheet(qrSheet, filteredAttendees.length);
-      XLSX.utils.book_append_sheet(workbook, qrSheet, 'QR Codes Only');
+      await createQROnlySheet(workbook, filteredAttendees, qrImages, options);
     }
 
     // Create summary sheet if metadata is included
     if (options.includeMetadata) {
-      const summaryData = createSummarySheetData(filteredAttendees, options);
-      const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-      formatSummarySheet(summarySheet);
-      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+      createSummarySheet(workbook, filteredAttendees, options);
     }
 
     // Generate filename with timestamp
@@ -60,7 +52,16 @@ export const exportAttendeesToExcel = async (
     const filename = `Attendee_QR_Codes_${timestamp}.xlsx`;
 
     // Write and download the file
-    XLSX.writeFile(workbook, filename);
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    
+    // Clean up
+    URL.revokeObjectURL(link.href);
 
   } catch (error) {
     console.error('Error exporting to Excel:', error);
@@ -68,70 +69,194 @@ export const exportAttendeesToExcel = async (
   }
 };
 
-const createMainSheetData = async (
+const createMainSheet = async (
+  workbook: ExcelJS.Workbook,
   attendees: AttendeeWithQR[],
   qrImages: Record<string, string>,
   options: ExcelExportOptions
-): Promise<any[][]> => {
+): Promise<void> => {
+  const worksheet = workbook.addWorksheet('Attendee QR Codes');
+
+  // Set up headers
   const headers = ['Name', 'Official Email ID', 'Company', 'QR Code Text', 'Registration Type'];
   if (options.includeQRImages) {
-    headers.push('QR Code Image');
+    headers.push('QR Code');
   }
 
-  const data: any[][] = [headers];
+  // Add headers
+  worksheet.addRow(headers);
 
-  for (const attendee of attendees) {
-    const row = [
+  // Style headers
+  const headerRow = worksheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '366092' } };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+  headerRow.height = 30;
+
+  // Set column widths
+  worksheet.getColumn(1).width = 25; // Name
+  worksheet.getColumn(2).width = 35; // Email
+  worksheet.getColumn(3).width = 20; // Company
+  worksheet.getColumn(4).width = 20; // QR Code Text
+  worksheet.getColumn(5).width = 18; // Registration Type
+  if (options.includeQRImages) {
+    worksheet.getColumn(6).width = 15; // QR Code Image column
+  }
+
+  // Add data rows with QR images
+  for (let i = 0; i < attendees.length; i++) {
+    const attendee = attendees[i];
+    const rowNumber = i + 2; // +2 because Excel is 1-indexed and we have a header
+    
+    // Add text data
+    const row = worksheet.addRow([
       attendee.name,
       attendee.email,
       attendee.company || 'N/A',
       attendee.qrCode || 'N/A',
       attendee.registrationType || 'pre_registered'
-    ];
+    ]);
 
+    // Style the row
+    row.alignment = { vertical: 'middle', horizontal: 'left' };
+    row.height = options.includeQRImages ? 80 : 25;
+
+    // Add QR code image if available
     if (options.includeQRImages && qrImages[attendee.id]) {
-      // For now, we'll include the base64 data URL
-      // In a more advanced implementation, you could embed actual images
-      row.push(qrImages[attendee.id]);
-    }
+      try {
+        // Convert base64 to buffer
+        const base64Data = qrImages[attendee.id].split(',')[1];
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+        
+        // Add image to workbook
+        const imageId = workbook.addImage({
+          buffer: imageBuffer,
+          extension: 'png',
+        });
 
-    data.push(row);
+        // Add image to worksheet
+        worksheet.addImage(imageId, {
+          tl: { col: 5, row: rowNumber - 1 }, // Top-left position (0-indexed)
+          ext: { width: options.qrImageSize, height: options.qrImageSize }
+        });
+      } catch (error) {
+        console.warn(`Failed to add QR image for ${attendee.name}:`, error);
+      }
+    }
   }
 
-  return data;
+  // Add borders to all cells
+  const totalRows = attendees.length + 1;
+  const totalCols = headers.length;
+  
+  for (let row = 1; row <= totalRows; row++) {
+    for (let col = 1; col <= totalCols; col++) {
+      const cell = worksheet.getCell(row, col);
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    }
+  }
 };
 
-const createQROnlySheetData = (
+const createQROnlySheet = async (
+  workbook: ExcelJS.Workbook,
   attendees: AttendeeWithQR[],
-  qrImages: Record<string, string>
-): any[][] => {
-  const headers = ['Name', 'QR Code Text', 'QR Code Image (Base64)'];
-  const data: any[][] = [headers];
+  qrImages: Record<string, string>,
+  options: ExcelExportOptions
+): Promise<void> => {
+  const worksheet = workbook.addWorksheet('QR Codes Only');
 
-  attendees.forEach(attendee => {
+  // Set up headers
+  const headers = ['Name', 'QR Code Text', 'QR Code Image'];
+  worksheet.addRow(headers);
+
+  // Style headers
+  const headerRow = worksheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '366092' } };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+  headerRow.height = 30;
+
+  // Set column widths for larger QR images
+  worksheet.getColumn(1).width = 25; // Name
+  worksheet.getColumn(2).width = 20; // QR Code Text
+  worksheet.getColumn(3).width = 20; // QR Code Image
+
+  // Add data rows with larger QR images
+  for (let i = 0; i < attendees.length; i++) {
+    const attendee = attendees[i];
+    const rowNumber = i + 2;
+    
     if (qrImages[attendee.id]) {
-      data.push([
+      // Add text data
+      const row = worksheet.addRow([
         attendee.name,
         attendee.qrCode || 'N/A',
-        qrImages[attendee.id]
+        '' // Empty cell for QR image
       ]);
-    }
-  });
 
-  return data;
+      // Style the row
+      row.alignment = { vertical: 'middle', horizontal: 'left' };
+      row.height = 120; // Larger height for bigger QR codes
+
+      try {
+        // Convert base64 to buffer
+        const base64Data = qrImages[attendee.id].split(',')[1];
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+        
+        // Add image to workbook
+        const imageId = workbook.addImage({
+          buffer: imageBuffer,
+          extension: 'png',
+        });
+
+        // Add larger image to worksheet
+        worksheet.addImage(imageId, {
+          tl: { col: 2, row: rowNumber - 1 }, // Top-left position (0-indexed)
+          ext: { width: 100, height: 100 } // Larger size for QR-only sheet
+        });
+      } catch (error) {
+        console.warn(`Failed to add QR image for ${attendee.name}:`, error);
+      }
+    }
+  }
+
+  // Add borders
+  const totalRows = attendees.filter(a => qrImages[a.id]).length + 1;
+  const totalCols = 3;
+  
+  for (let row = 1; row <= totalRows; row++) {
+    for (let col = 1; col <= totalCols; col++) {
+      const cell = worksheet.getCell(row, col);
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    }
+  }
 };
 
-const createSummarySheetData = (
+const createSummarySheet = (
+  workbook: ExcelJS.Workbook,
   attendees: AttendeeWithQR[],
   options: ExcelExportOptions
-): any[][] => {
+): void => {
+  const worksheet = workbook.addWorksheet('Summary');
+
   const totalAttendees = attendees.length;
   const preRegistered = attendees.filter(a => a.registrationType === 'pre_registered').length;
   const walkIns = attendees.filter(a => a.registrationType === 'walk_in').length;
   const withQRCodes = attendees.filter(a => a.qrCode).length;
   const checkedIn = attendees.filter(a => a.checkedIn).length;
 
-  return [
+  // Add summary data
+  const summaryData = [
     ['Event QR Codes Summary'],
     [''],
     ['Export Details'],
@@ -156,54 +281,24 @@ const createSummarySheetData = (
     ['Checked In:', `${checkedIn} (${((checkedIn / totalAttendees) * 100).toFixed(1)}%)`],
     ['Pending:', `${totalAttendees - checkedIn} (${(((totalAttendees - checkedIn) / totalAttendees) * 100).toFixed(1)}%)`]
   ];
-};
 
-const formatMainSheet = (sheet: XLSX.WorkSheet, attendeeCount: number) => {
+  summaryData.forEach(row => {
+    worksheet.addRow(row);
+  });
+
+  // Style the title
+  const titleCell = worksheet.getCell('A1');
+  titleCell.font = { bold: true, size: 16, color: { argb: '366092' } };
+
+  // Style section headers
+  [3, 10, 17, 21].forEach(rowNum => {
+    const cell = worksheet.getCell(rowNum, 1);
+    cell.font = { bold: true, color: { argb: '366092' } };
+  });
+
   // Set column widths
-  const columnWidths = [
-    { wch: 25 }, // Name
-    { wch: 30 }, // Email
-    { wch: 20 }, // Company
-    { wch: 15 }, // QR Code Text
-    { wch: 18 }, // Registration Type
-    { wch: 20 }  // QR Code Image
-  ];
-  sheet['!cols'] = columnWidths;
-
-  // Set row heights (make them taller for QR images)
-  const rowHeights = [];
-  rowHeights.push({ hpt: 25 }); // Header row
-  for (let i = 0; i < attendeeCount; i++) {
-    rowHeights.push({ hpt: 80 }); // Data rows - taller for QR images
-  }
-  sheet['!rows'] = rowHeights;
-};
-
-const formatQRSheet = (sheet: XLSX.WorkSheet, attendeeCount: number) => {
-  // Set column widths for QR sheet
-  const columnWidths = [
-    { wch: 25 }, // Name
-    { wch: 15 }, // QR Code Text
-    { wch: 50 }  // QR Code Image (wider for base64)
-  ];
-  sheet['!cols'] = columnWidths;
-
-  // Set row heights
-  const rowHeights = [];
-  rowHeights.push({ hpt: 25 }); // Header row
-  for (let i = 0; i < attendeeCount; i++) {
-    rowHeights.push({ hpt: 120 }); // Even taller for large QR images
-  }
-  sheet['!rows'] = rowHeights;
-};
-
-const formatSummarySheet = (sheet: XLSX.WorkSheet) => {
-  // Set column widths for summary
-  const columnWidths = [
-    { wch: 30 }, // Description
-    { wch: 20 }  // Value
-  ];
-  sheet['!cols'] = columnWidths;
+  worksheet.getColumn(1).width = 30;
+  worksheet.getColumn(2).width = 20;
 };
 
 // Utility function to convert base64 image to blob for advanced implementations
