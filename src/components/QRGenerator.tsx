@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Download, Send, Eye, Upload, Image as ImageIcon, CheckCircle, Clock, Loader2, MessageCircle } from "lucide-react";
+import { Download, Send, Eye, Upload, Image as ImageIcon, CheckCircle, Clock, Loader2, MessageCircle, FileSpreadsheet } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import QRCode from "qrcode";
@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { composeQRWithBackground, embedLogoInQR, type QRCompositionOptions } from "@/lib/qr-canvas";
 import { useBackgroundPersistence } from "@/hooks/useBackgroundPersistence";
 import { hslToHex } from "@/lib/utils";
+import { exportAttendeesToExcel } from "@/lib/excelExport";
 import type { Attendee } from "./EventDashboard";
 import type { LogEntry } from "./LogsView";
 
@@ -329,6 +330,56 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
     });
   };
 
+  const handleExportToExcel = async () => {
+    try {
+      if (Object.keys(qrImages).length === 0) {
+        toast({
+          title: "No QR Codes",
+          description: "Please wait for QR codes to be generated first",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      await exportAttendeesToExcel(attendees, qrImages, {
+        includeQRImages: true,
+        qrImageSize: qrOptions.qrSize,
+        includeMetadata: true
+      });
+
+      onLog?.({
+        type: 'system',
+        action: 'Excel export completed',
+        user: 'System',
+        email: '',
+        details: `Exported ${attendees.length} attendees with QR codes`,
+        status: 'success'
+      });
+
+      toast({
+        title: "Excel Export Complete!",
+        description: `Downloaded Excel file with ${attendees.length} attendees and their QR codes`,
+      });
+    } catch (error) {
+      console.error('Failed to export to Excel:', error);
+      
+      onLog?.({
+        type: 'system',
+        action: 'Excel export failed',
+        user: 'System',
+        email: '',
+        details: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        status: 'error'
+      });
+
+      toast({
+        title: "Export Failed",
+        description: "Failed to export to Excel. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Background Upload and Controls */}
@@ -493,14 +544,24 @@ export const QRGenerator = ({ attendees, onLog, defaultMessage = "" }: QRGenerat
               {isGenerating ? "Generating QR codes..." : `${attendees.length} QR codes ready`}
             </p>
           </div>
-          <Button 
-            onClick={handleDownloadAll}
-            disabled={isGenerating || Object.keys(qrImages).length === 0}
-            className="bg-gradient-primary hover:shadow-glow transition-all duration-300"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Download All
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleDownloadAll}
+              disabled={isGenerating || Object.keys(qrImages).length === 0}
+              variant="outline"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download All
+            </Button>
+            <Button 
+              onClick={handleExportToExcel}
+              disabled={isGenerating || Object.keys(qrImages).length === 0}
+              className="bg-gradient-primary hover:shadow-glow transition-all duration-300"
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-2" />
+              Export to Excel
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
