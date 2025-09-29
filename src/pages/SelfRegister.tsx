@@ -14,7 +14,6 @@ import { Download, UserPlus } from "lucide-react";
 const registrationSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email"),
-  phone: z.string().optional(),
   company: z.string().min(2, "Company name must be at least 2 characters"),
 });
 
@@ -30,7 +29,6 @@ const SelfRegister = () => {
     defaultValues: {
       name: "",
       email: "",
-      phone: "",
       company: "",
     },
   });
@@ -47,7 +45,7 @@ const SelfRegister = () => {
         body: JSON.stringify({
           name: data.name,
           email: data.email,
-          phone: data.phone || null,
+          phone: null,
           company: data.company || null,
         }),
       });
@@ -186,30 +184,11 @@ const SelfRegister = () => {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email *</FormLabel>
+                    <FormLabel>Official Email Id *</FormLabel>
                     <FormControl>
                       <Input 
                         type="email"
                         placeholder="Enter your email"
-                        className="h-12 text-base"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone Number (Optional)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="tel"
-                        placeholder="Enter your phone number"
                         className="h-12 text-base"
                         {...field}
                       />
