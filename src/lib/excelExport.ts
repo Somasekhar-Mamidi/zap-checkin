@@ -124,9 +124,13 @@ const createMainSheet = async (
     // Add QR code image if available
     if (options.includeQRImages && qrImages[attendee.id]) {
       try {
-        // Convert base64 to buffer
+        // Convert base64 to Uint8Array (browser-compatible)
         const base64Data = qrImages[attendee.id].split(',')[1];
-        const imageBuffer = Buffer.from(base64Data, 'base64');
+        const binaryString = atob(base64Data);
+        const imageBuffer = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          imageBuffer[i] = binaryString.charCodeAt(i);
+        }
         
         // Add image to workbook
         const imageId = workbook.addImage({
@@ -204,9 +208,13 @@ const createQROnlySheet = async (
       row.height = 120; // Larger height for bigger QR codes
 
       try {
-        // Convert base64 to buffer
+        // Convert base64 to Uint8Array (browser-compatible)
         const base64Data = qrImages[attendee.id].split(',')[1];
-        const imageBuffer = Buffer.from(base64Data, 'base64');
+        const binaryString = atob(base64Data);
+        const imageBuffer = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          imageBuffer[i] = binaryString.charCodeAt(i);
+        }
         
         // Add image to workbook
         const imageId = workbook.addImage({
