@@ -15,7 +15,6 @@ const registrationSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email"),
   company: z.string().min(2, "Company name must be at least 2 characters"),
-  token: z.string().min(1, "Registration token is required"),
 });
 
 type RegistrationForm = z.infer<typeof registrationSchema>;
@@ -31,7 +30,6 @@ const SelfRegister = () => {
       name: "",
       email: "",
       company: "",
-      token: new URLSearchParams(window.location.search).get("token") || "",
     },
   });
 
@@ -49,7 +47,6 @@ const SelfRegister = () => {
           email: data.email,
           phone: null,
           company: data.company || null,
-          token: data.token,
         }),
       });
 
@@ -210,24 +207,6 @@ const SelfRegister = () => {
                     <FormControl>
                       <Input 
                         placeholder="Enter your company name"
-                        className="h-12 text-base"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="token"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Registration Token *</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="Enter your registration token"
                         className="h-12 text-base"
                         {...field}
                       />

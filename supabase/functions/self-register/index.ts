@@ -6,7 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const RATE_LIMIT = 3; // 3 registrations per hour per IP (reduced from 5)
+// Rate limiting storage (in-memory for simplicity)
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+const RATE_LIMIT = 5; // 5 registrations per hour per IP
 const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour in milliseconds
 
 function generateSecureQRCode(): string {
@@ -23,141 +26,21 @@ function isValidEmail(email: string): boolean {
   return emailRegex.test(email);
 }
 
-async function checkRateLimit(clientIP: string, supabase: any): Promise<boolean> {
-  const now = new Date();
-  const windowStart = new Date(now.getTime() - RATE_LIMIT_WINDOW);
+function checkRateLimit(clientIP: string): boolean {
+  const now = Date.now();
+  const userLimit = rateLimitMap.get(clientIP);
 
-  try {
-    // Get or create rate limit record
-    const { data: existingLimit, error: fetchError } = await supabase
-      .from('registration_rate_limits')
-      .select('*')
-      .eq('client_ip', clientIP)
-      .single();
-
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      console.error('Error fetching rate limit:', fetchError);
-      return false; // Fail closed on errors
-    }
-
-    if (!existingLimit) {
-      // First attempt from this IP
-      const { error: insertError } = await supabase
-        .from('registration_rate_limits')
-        .insert({
-          client_ip: clientIP,
-          attempt_count: 1,
-          window_start: now,
-          last_attempt: now,
-        });
-
-      if (insertError) {
-        console.error('Error creating rate limit:', insertError);
-        return false;
-      }
-      return true;
-    }
-
-    // Check if window has expired
-    if (new Date(existingLimit.window_start) < windowStart) {
-      // Reset the window
-      const { error: updateError } = await supabase
-        .from('registration_rate_limits')
-        .update({
-          attempt_count: 1,
-          window_start: now,
-          last_attempt: now,
-        })
-        .eq('client_ip', clientIP);
-
-      if (updateError) {
-        console.error('Error resetting rate limit:', updateError);
-        return false;
-      }
-      return true;
-    }
-
-    // Check if limit exceeded
-    if (existingLimit.attempt_count >= RATE_LIMIT) {
-      return false;
-    }
-
-    // Increment counter
-    const { error: updateError } = await supabase
-      .from('registration_rate_limits')
-      .update({
-        attempt_count: existingLimit.attempt_count + 1,
-        last_attempt: now,
-      })
-      .eq('client_ip', clientIP);
-
-    if (updateError) {
-      console.error('Error updating rate limit:', updateError);
-      return false;
-    }
-
+  if (!userLimit || now > userLimit.resetTime) {
+    rateLimitMap.set(clientIP, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
     return true;
-  } catch (error) {
-    console.error('Rate limit check failed:', error);
-    return false; // Fail closed on errors
   }
-}
 
-async function validateToken(token: string, email: string, supabase: any): Promise<{ valid: boolean; error?: string }> {
-  try {
-    const { data: tokenData, error: fetchError } = await supabase
-      .from('registration_tokens')
-      .select('*')
-      .eq('token', token)
-      .single();
-
-    if (fetchError || !tokenData) {
-      return { valid: false, error: 'Invalid registration token' };
-    }
-
-    // Check if token is active
-    if (!tokenData.is_active) {
-      return { valid: false, error: 'Token is no longer active' };
-    }
-
-    // Check if token has expired
-    if (new Date(tokenData.expires_at) < new Date()) {
-      return { valid: false, error: 'Token has expired' };
-    }
-
-    // Check if token has reached max uses
-    if (tokenData.current_uses >= tokenData.max_uses) {
-      return { valid: false, error: 'Token has reached maximum uses' };
-    }
-
-    return { valid: true };
-  } catch (error) {
-    console.error('Token validation error:', error);
-    return { valid: false, error: 'Token validation failed' };
+  if (userLimit.count >= RATE_LIMIT) {
+    return false;
   }
-}
 
-async function markTokenAsUsed(token: string, email: string, supabase: any): Promise<void> {
-  try {
-    const { data: tokenData } = await supabase
-      .from('registration_tokens')
-      .select('current_uses')
-      .eq('token', token)
-      .single();
-
-    if (!tokenData) return;
-
-    await supabase
-      .from('registration_tokens')
-      .update({
-        current_uses: tokenData.current_uses + 1,
-        used_at: new Date(),
-        used_by_email: email,
-      })
-      .eq('token', token);
-  } catch (error) {
-    console.error('Error marking token as used:', error);
-  }
+  userLimit.count++;
+  return true;
 }
 
 serve(async (req) => {
@@ -174,43 +57,20 @@ serve(async (req) => {
   }
 
   try {
-    // Initialize Supabase client with service role key
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     // Get client IP for rate limiting
     const clientIP = req.headers.get('x-forwarded-for') || 
                      req.headers.get('x-real-ip') || 
                      'unknown';
 
-    // Check rate limit (database-backed)
-    const rateLimitPassed = await checkRateLimit(clientIP, supabase);
-    if (!rateLimitPassed) {
+    // Check rate limit
+    if (!checkRateLimit(clientIP)) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
         status: 429,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const { name, email, phone, company, token } = await req.json();
-
-    // Validate registration token (REQUIRED)
-    if (!token || typeof token !== 'string' || token.trim().length === 0) {
-      return new Response(JSON.stringify({ error: 'Registration token is required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const tokenValidation = await validateToken(token.trim(), email, supabase);
-    if (!tokenValidation.valid) {
-      return new Response(JSON.stringify({ error: tokenValidation.error }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const { name, email, phone, company } = await req.json();
 
     // Validate required fields
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -244,6 +104,12 @@ serve(async (req) => {
 
     // Generate secure QR code
     const qrCode = generateSecureQRCode();
+
+    // Initialize Supabase client with service role key
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Check if email already exists
     const { data: existingAttendee } = await supabase
@@ -282,9 +148,6 @@ serve(async (req) => {
       });
     }
 
-    // Mark token as used
-    await markTokenAsUsed(token.trim(), sanitizedData.email, supabase);
-
     // Log activity
     await supabase
       .from('activity_logs')
@@ -293,13 +156,12 @@ serve(async (req) => {
         action: 'self_register',
         user_name: sanitizedData.name,
         user_email: sanitizedData.email,
-        details: `Walk-in registration via token`,
+        details: `Walk-in registration via QR code`,
         status: 'success',
         metadata: { 
           registration_type: 'walk_in',
           qr_code: qrCode,
-          client_ip: clientIP,
-          token_used: token.trim()
+          client_ip: clientIP 
         }
       });
 
