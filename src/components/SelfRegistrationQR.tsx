@@ -1,11 +1,48 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { QRCodeSVG } from "qrcode.react";
-import { Download, QrCode, ExternalLink } from "lucide-react";
+import { Download, QrCode, ExternalLink, Copy, AlertTriangle, Save } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const SelfRegistrationQR = () => {
-  const registrationUrl = `${window.location.origin}/register`;
+  const { toast } = useToast();
+  const [publicSiteUrl, setPublicSiteUrl] = useState("");
+  const [inputUrl, setInputUrl] = useState("");
+  
+  useEffect(() => {
+    const saved = localStorage.getItem("publicSiteUrl");
+    if (saved) {
+      setPublicSiteUrl(saved);
+      setInputUrl(saved);
+    }
+  }, []);
+
+  const normalizeUrl = (url: string) => {
+    return url.replace(/\/+$/, "");
+  };
+
+  const registrationUrl = publicSiteUrl 
+    ? `${normalizeUrl(publicSiteUrl)}/register`
+    : `${window.location.origin}/register`;
+
+  const isEditorDomain = !publicSiteUrl && (
+    window.location.hostname.includes("lovable.app") || 
+    window.location.pathname.includes("/projects/")
+  );
+
+  const savePublicUrl = () => {
+    const normalized = normalizeUrl(inputUrl);
+    localStorage.setItem("publicSiteUrl", normalized);
+    setPublicSiteUrl(normalized);
+    toast({
+      title: "Public URL Saved",
+      description: "QR code will now use this URL for registration.",
+    });
+  };
 
   const downloadQRCode = () => {
     const svg = document.getElementById("self-registration-qr");
@@ -38,6 +75,14 @@ const SelfRegistrationQR = () => {
     window.open(registrationUrl, "_blank");
   };
 
+  const copyLink = () => {
+    navigator.clipboard.writeText(registrationUrl);
+    toast({
+      title: "Link Copied",
+      description: "Registration URL copied to clipboard.",
+    });
+  };
+
   return (
     <Card className="shadow-elegant">
       <CardHeader>
@@ -50,6 +95,36 @@ const SelfRegistrationQR = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {isEditorDomain && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Warning:</strong> This QR code currently points to the Lovable editor domain, which requires login. 
+              Please set your public site URL below to generate a working QR code for third-party attendees.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="space-y-3">
+          <Label htmlFor="public-url">Public Site URL (for QR code)</Label>
+          <div className="flex gap-2">
+            <Input
+              id="public-url"
+              type="url"
+              placeholder="https://your-site.lovable.app"
+              value={inputUrl}
+              onChange={(e) => setInputUrl(e.target.value)}
+              className="flex-1"
+            />
+            <Button onClick={savePublicUrl} size="icon" variant="outline">
+              <Save className="h-4 w-4" />
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Enter your deployed site URL (e.g., https://your-app.lovable.app) so the QR code works for anyone.
+          </p>
+        </div>
+
         <div className="flex justify-center">
           <div className="bg-white p-4 rounded-lg border-2 border-muted">
             <QRCodeSVG
@@ -69,14 +144,18 @@ const SelfRegistrationQR = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Button onClick={downloadQRCode} variant="outline" className="w-full">
             <Download className="w-4 h-4 mr-2" />
-            Download QR Code
+            Download QR
+          </Button>
+          <Button onClick={copyLink} variant="outline" className="w-full">
+            <Copy className="w-4 h-4 mr-2" />
+            Copy Link
           </Button>
           <Button onClick={openRegistrationPage} variant="outline" className="w-full">
             <ExternalLink className="w-4 h-4 mr-2" />
-            Test Registration
+            Test Form
           </Button>
         </div>
 
