@@ -12,6 +12,7 @@ import { Plus, Trash2, Shield, Users, Mail, Calendar, CheckCircle, XCircle, Aler
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { RegistrationTokenManager } from "@/components/RegistrationTokenManager";
 
 interface InvitedUser {
   id: string;
@@ -387,9 +388,10 @@ const AdminPanel = () => {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="invitations" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="invitations">User Invitations</TabsTrigger>
               <TabsTrigger value="users">Active Users</TabsTrigger>
+              <TabsTrigger value="tokens">Registration Tokens</TabsTrigger>
             </TabsList>
 
             <TabsContent value="invitations" className="space-y-4">
@@ -584,6 +586,10 @@ const AdminPanel = () => {
                   </TableBody>
                 </Table>
               )}
+            </TabsContent>
+
+            <TabsContent value="tokens" className="space-y-4">
+              <RegistrationTokenManager />
             </TabsContent>
           </Tabs>
         </CardContent>

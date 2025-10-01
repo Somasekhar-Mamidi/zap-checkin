@@ -187,6 +187,72 @@ export type Database = {
         }
         Relationships: []
       }
+      registration_rate_limits: {
+        Row: {
+          attempt_count: number
+          client_ip: string
+          id: string
+          last_attempt: string
+          window_start: string
+        }
+        Insert: {
+          attempt_count?: number
+          client_ip: string
+          id?: string
+          last_attempt?: string
+          window_start?: string
+        }
+        Update: {
+          attempt_count?: number
+          client_ip?: string
+          id?: string
+          last_attempt?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      registration_tokens: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          current_uses: number
+          expires_at: string
+          id: string
+          is_active: boolean
+          max_uses: number
+          notes: string | null
+          token: string
+          used_at: string | null
+          used_by_email: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          current_uses?: number
+          expires_at: string
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+          notes?: string | null
+          token: string
+          used_at?: string | null
+          used_by_email?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          current_uses?: number
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+          notes?: string | null
+          token?: string
+          used_at?: string | null
+          used_by_email?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -213,6 +279,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_tokens: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       get_checkin_count_for_qr: {
         Args: { qr_code_param: string }
         Returns: number
