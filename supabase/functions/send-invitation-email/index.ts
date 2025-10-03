@@ -229,7 +229,7 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailResponse = await resend.emails.send({
-      from: "Event Manager <noreply@juspayconnect.online>",
+      from: "Event Manager <marketing@juspay.in>",
       to: [email],
       subject: "🎉 You're invited to Event Manager Platform",
       html: emailHtml,
