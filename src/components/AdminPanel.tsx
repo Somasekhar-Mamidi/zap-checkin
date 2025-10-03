@@ -8,7 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Shield, Users, Mail, Calendar, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Trash2, Shield, Users, Mail, Calendar, CheckCircle, XCircle, AlertCircle, UserCog } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -321,6 +322,51 @@ const AdminPanel = () => {
     }
   };
 
+  const changeUserRole = async (userId: string, userEmail: string, currentRole: string, newRole: 'admin' | 'user') => {
+    // Prevent changing super admin role
+    if (currentRole === 'super_admin') {
+      toast({
+        title: "Error",
+        description: "Super admin role cannot be changed.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prevent users from changing their own role
+    if (userId === user?.id) {
+      toast({
+        title: "Error",
+        description: "You cannot change your own role.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('user_roles')
+        .update({ role: newRole })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Successfully changed ${userEmail}'s role to ${newRole}`,
+      });
+
+      loadUserRoles();
+    } catch (error) {
+      console.error('Error changing user role:', error);
+      toast({
+        title: "Error",
+        description: "Failed to change user role. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const deleteUser = async (userId: string, userEmail: string, userRole: string) => {
     // Prevent super admins from being deleted and prevent deletion of own account
     if (userRole === 'super_admin') {
@@ -549,37 +595,88 @@ const AdminPanel = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {userRole.role !== 'super_admin' && userRole.user_id !== user?.id && (
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-red-600 hover:text-red-700"
-                                >
-                                  <Trash2 className="h-3 w-3 mr-1" />
-                                  Remove
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Remove User Access</DialogTitle>
-                                  <DialogDescription>
-                                    Are you sure you want to remove access for {userRole.profiles?.email}? This action cannot be undone.
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <DialogFooter>
-                                  <Button variant="outline">Cancel</Button>
-                                  <Button 
-                                    variant="destructive"
-                                    onClick={() => deleteUser(userRole.user_id, userRole.profiles?.email || 'Unknown', userRole.role)}
-                                  >
-                                    Remove Access
-                                  </Button>
-                                </DialogFooter>
-                              </DialogContent>
-                            </Dialog>
-                          )}
+                          <div className="flex gap-2">
+                            {userRole.role !== 'super_admin' && userRole.user_id !== user?.id && (
+                              <>
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                    >
+                                      <UserCog className="h-3 w-3 mr-1" />
+                                      Change Role
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Change User Role</DialogTitle>
+                                      <DialogDescription>
+                                        Select a new role for {userRole.profiles?.email}
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4">
+                                      <div>
+                                        <Label>Current Role</Label>
+                                        <div className="mt-2">{getRoleBadge(userRole.role)}</div>
+                                      </div>
+                                      <div>
+                                        <Label htmlFor="new-role">New Role</Label>
+                                        <Select 
+                                          onValueChange={(value) => {
+                                            changeUserRole(
+                                              userRole.user_id, 
+                                              userRole.profiles?.email || 'Unknown', 
+                                              userRole.role, 
+                                              value as 'admin' | 'user'
+                                            );
+                                          }}
+                                        >
+                                          <SelectTrigger id="new-role" className="mt-2">
+                                            <SelectValue placeholder="Select a role" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="user">User</SelectItem>
+                                            <SelectItem value="admin">Admin</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                                
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-red-600 hover:text-red-700"
+                                    >
+                                      <Trash2 className="h-3 w-3 mr-1" />
+                                      Remove
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Remove User Access</DialogTitle>
+                                      <DialogDescription>
+                                        Are you sure you want to remove access for {userRole.profiles?.email}? This action cannot be undone.
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <DialogFooter>
+                                      <Button variant="outline">Cancel</Button>
+                                      <Button 
+                                        variant="destructive"
+                                        onClick={() => deleteUser(userRole.user_id, userRole.profiles?.email || 'Unknown', userRole.role)}
+                                      >
+                                        Remove Access
+                                      </Button>
+                                    </DialogFooter>
+                                  </DialogContent>
+                                </Dialog>
+                              </>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
