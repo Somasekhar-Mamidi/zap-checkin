@@ -62,28 +62,6 @@ const Auth = () => {
     setSuccess("");
 
     try {
-      // If this is an invitation signup, validate the invitation exists
-      if (isInvitation) {
-        const { data: inviteData, error: inviteError } = await supabase
-          .from('invited_users')
-          .select('*')
-          .eq('email', email)
-          .eq('status', 'pending')
-          .maybeSingle();
-
-        if (inviteError) {
-          setError("Error validating invitation. Please try again.");
-          setLoading(false);
-          return;
-        }
-
-        if (!inviteData) {
-          setError("Invalid or expired invitation. Please contact your administrator.");
-          setLoading(false);
-          return;
-        }
-      }
-      
       const redirectUrl = `${window.location.origin}/`;
       
       const { error } = await supabase.auth.signUp({
@@ -106,14 +84,10 @@ const Auth = () => {
           setError(error.message);
         }
       } else {
-        if (isInvitation) {
-          setSuccess("Account created successfully! You can now sign in with your credentials.");
-        } else {
-          setSuccess("Check your email for the confirmation link!");
-        }
+        setSuccess("Account created successfully! Please check your email to confirm your account.");
         toast({
           title: "Account created successfully!",
-          description: isInvitation ? "You can now sign in with your credentials." : "Please check your email to confirm your account.",
+          description: "Please check your email to confirm your account.",
         });
       }
     } catch (err) {
