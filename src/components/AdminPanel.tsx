@@ -170,6 +170,7 @@ const AdminPanel = () => {
             email: newEmail.trim().toLowerCase(),
             inviterName: user?.user_metadata?.full_name || user?.email?.split('@')[0],
             inviterEmail: user?.email,
+            siteUrl: window.location.origin,
           }
         });
 
@@ -256,6 +257,7 @@ const AdminPanel = () => {
             email: email,
             inviterName: user?.user_metadata?.full_name || user?.email?.split('@')[0],
             inviterEmail: user?.email,
+            siteUrl: window.location.origin,
           }
         });
 

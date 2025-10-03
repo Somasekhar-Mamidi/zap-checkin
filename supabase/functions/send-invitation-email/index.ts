@@ -13,6 +13,7 @@ interface InvitationEmailRequest {
   email: string;
   inviterName?: string;
   inviterEmail?: string;
+  siteUrl?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -53,7 +54,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("User authenticated:", user.email);
 
-    const { email, inviterName, inviterEmail }: InvitationEmailRequest = await req.json();
+    const { email, inviterName, inviterEmail, siteUrl }: InvitationEmailRequest = await req.json();
 
     if (!email) {
       return new Response(
@@ -64,8 +65,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Sending invitation email to:", email);
 
-    // Get the site URL from environment or use your custom domain
-    const siteUrl = Deno.env.get("SITE_URL") || "https://juspayconnect.online";
+    // Use provided site URL from frontend, or fall back to environment variable
+    const finalSiteUrl = siteUrl || Deno.env.get("SITE_URL") || "https://juspayconnect.online";
+    console.log("Using site URL:", finalSiteUrl);
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -198,7 +200,7 @@ const handler = async (req: Request): Promise<Response> => {
               </div>
 
               <div style="text-align: center;">
-                <a href="${siteUrl}/auth?invitation=true&email=${encodeURIComponent(email)}" class="cta-button">
+                <a href="${finalSiteUrl}/auth?invitation=true&email=${encodeURIComponent(email)}" class="cta-button">
                   🚀 Access Platform
                 </a>
               </div>
