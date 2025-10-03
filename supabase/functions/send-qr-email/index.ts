@@ -46,7 +46,7 @@ const handler = async (req: Request): Promise<Response> => {
       mainMessage: "Here's your QR code for the event. Please save this image and present it at check-in.",
       qrInstructions: "Your unique QR code:",
       closingMessage: "We look forward to seeing you at the event!",
-      senderName: "Event Team",
+      senderName: "Juspay",
       headerTitle: "Your Event QR Code"
     };
 
