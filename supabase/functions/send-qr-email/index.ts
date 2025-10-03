@@ -154,7 +154,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email using Resend with enhanced HTML and fallback
     const emailResponse = await resend.emails.send({
-      from: "Juspay After Party QR <marketing@juspay.in>",
+      from: "Juspay AfterParty QR <marketing@juspay.in>",
       to: [attendee.email],
       subject: personalizedTemplate.subject,
       html: `
