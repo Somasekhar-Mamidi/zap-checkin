@@ -116,12 +116,9 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
   };
 
   const handleScanError = (error: string) => {
-    // Convert error to string safely (iOS PWA fix)
-    const errorStr = error?.toString?.() || String(error || 'Unknown error');
-    
     // Only show error if it's not a common scanning error
-    if (!errorStr.includes("No QR code found")) {
-      setScannerError(errorStr);
+    if (!error.includes("No QR code found")) {
+      setScannerError(error);
     }
   };
 
@@ -157,12 +154,6 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
     }
   };
 
-  // Detect if running in iOS PWA mode
-  const isIOSPWA = () => {
-    return /iPhone|iPad|iPod/.test(navigator.userAgent) && 
-           (window.navigator as any).standalone === true;
-  };
-
   const startScanning = async () => {
     setScannerError("");
     
@@ -170,11 +161,6 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setScannerError("Camera not available. Your browser or device doesn't support camera access.");
       return;
-    }
-
-    // Special handling for iOS PWA
-    if (isIOSPWA()) {
-      setScannerError("For best results on iOS, use Safari browser instead of home screen app.");
     }
 
     // Request camera permission first
@@ -218,21 +204,13 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
       );
 
       scannerRef.current.render(handleScanSuccess, (error) => {
-        try {
-          // iOS PWA fix: Safely convert error to string
-          const errorStr = error?.toString?.() || String(error || '');
-          
-          // Only show meaningful errors
-          if (errorStr.includes("Permission denied") || errorStr.includes("NotAllowedError")) {
-            setScannerError("Camera permission denied. Please allow camera access in your browser settings.");
-          } else if (errorStr.includes("NotFoundError") || errorStr.includes("No camera found")) {
-            setScannerError("No camera found. Please ensure your device has a camera.");
-          } else if (!errorStr.includes("No QR code found") && !errorStr.includes("QR code parse error")) {
-            console.error("Scanner error:", error);
-          }
-        } catch (err) {
-          // Fallback if error handling itself fails
-          console.error("Error handler failed:", err, "Original error:", error);
+        // Only show meaningful errors
+        if (error.includes("Permission denied") || error.includes("NotAllowedError")) {
+          setScannerError("Camera permission denied. Please allow camera access in your browser settings.");
+        } else if (error.includes("NotFoundError") || error.includes("No camera found")) {
+          setScannerError("No camera found. Please ensure your device has a camera.");
+        } else if (!error.includes("No QR code found") && !error.includes("QR code parse error")) {
+          console.error("Scanner error:", error);
         }
       });
     } catch (error) {
