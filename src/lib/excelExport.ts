@@ -78,10 +78,7 @@ const createMainSheet = async (
   const worksheet = workbook.addWorksheet('Attendee QR Codes');
 
   // Set up headers
-  const headers = ['Name', 'Official Email ID', 'Company', 'QR Code Text', 'Registration Type'];
-  if (options.includeQRImages) {
-    headers.push('QR Code');
-  }
+  const headers = ['Name', 'Email ID', 'QR Code'];
 
   // Add headers
   worksheet.addRow(headers);
@@ -94,14 +91,9 @@ const createMainSheet = async (
   headerRow.height = 30;
 
   // Set column widths
-  worksheet.getColumn(1).width = 25; // Name
-  worksheet.getColumn(2).width = 35; // Email
-  worksheet.getColumn(3).width = 20; // Company
-  worksheet.getColumn(4).width = 20; // QR Code Text
-  worksheet.getColumn(5).width = 18; // Registration Type
-  if (options.includeQRImages) {
-    worksheet.getColumn(6).width = 15; // QR Code Image column
-  }
+  worksheet.getColumn(1).width = 30; // Name
+  worksheet.getColumn(2).width = 40; // Email
+  worksheet.getColumn(3).width = 18; // QR Code
 
   // Add data rows with QR images
   for (let i = 0; i < attendees.length; i++) {
@@ -112,14 +104,16 @@ const createMainSheet = async (
     const row = worksheet.addRow([
       attendee.name,
       attendee.email,
-      attendee.company || 'N/A',
-      attendee.qrCode || 'N/A',
-      attendee.registrationType || 'pre_registered'
+      '' // QR Code column (image will be placed here)
     ]);
 
     // Style the row
     row.alignment = { vertical: 'middle', horizontal: 'left' };
-    row.height = options.includeQRImages ? 80 : 25;
+    row.height = 120; // Fixed height for QR code cell
+    
+    // Center align the QR code column
+    const qrCell = worksheet.getCell(rowNumber, 3);
+    qrCell.alignment = { vertical: 'middle', horizontal: 'center' };
 
     // Add QR code image if available
     if (options.includeQRImages && qrImages[attendee.id]) {
@@ -138,10 +132,10 @@ const createMainSheet = async (
           extension: 'png',
         });
 
-        // Add image to worksheet
+        // Add image to worksheet - positioned in column 3 (0-indexed = 2)
         worksheet.addImage(imageId, {
-          tl: { col: 5, row: rowNumber - 1 }, // Top-left position (0-indexed)
-          ext: { width: options.qrImageSize, height: options.qrImageSize }
+          tl: { col: 2, row: rowNumber - 1 }, // Column 3, perfectly aligned
+          ext: { width: 110, height: 110 } // Fixed size to fit in 120px cell
         });
       } catch (error) {
         console.warn(`Failed to add QR image for ${attendee.name}:`, error);
@@ -151,7 +145,7 @@ const createMainSheet = async (
 
   // Add borders to all cells
   const totalRows = attendees.length + 1;
-  const totalCols = headers.length;
+  const totalCols = 3; // Name, Email ID, QR Code
   
   for (let row = 1; row <= totalRows; row++) {
     for (let col = 1; col <= totalCols; col++) {
