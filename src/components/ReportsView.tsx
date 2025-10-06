@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Download, Users, UserCheck, Clock, TrendingUp, UserPlus, QrCode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from 'jspdf';
+import { exportReportsToExcel } from "@/lib/reportsExcelExport";
 import type { Attendee } from "./EventDashboard";
 
 interface CheckinInstance {
@@ -73,60 +74,21 @@ export const ReportsView = ({ attendees, checkinInstances }: ReportsViewProps) =
       };
     });
 
-  const handleExportCSV = () => {
-    // Main attendees data
-    const attendeesData = [
-      ['=== ATTENDEES ==='],
-      ['Name', 'Email', 'Phone', 'Company', 'Registration Type', 'Status', 'QR Code', 'Check-In Time'],
-      ...attendees.map(attendee => [
-        attendee.name,
-        attendee.email,
-        attendee.phone,
-        attendee.company || '',
-        (attendee.registrationType || 'pre_registered') === 'pre_registered' ? 'Pre-registered' : 'Walk-in',
-        attendee.checkedIn ? 'Checked In' : 'Registered',
-        attendee.qrCode || '',
-        attendee.checkedInAt ? attendee.checkedInAt.toLocaleString() : ''
-      ]),
-      [''],
-      ['=== CHECK-IN INSTANCES (Including Plus Guests) ==='],
-      ['Original Attendee', 'Guest Type', 'Check-in Number', 'QR Code', 'Check-In Time'],
-      ...checkinInstances.map(instance => {
-        const attendee = attendees.find(a => a.id === instance.attendee_id);
-        return [
-          attendee?.name || 'Unknown',
-          instance.guest_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          instance.checkin_number.toString(),
-          instance.qr_code,
-          new Date(instance.checked_in_at).toLocaleString()
-        ];
-      }),
-      [''],
-      ['=== SUMMARY STATISTICS ==='],
-      ['Metric', 'Value'],
-      ['Total Registered', stats.total.toString()],
-      ['Total Check-ins (including plus guests)', stats.totalCheckIns.toString()],
-      ['Original Guests', stats.originalGuests.toString()],
-      ['Plus One Guests', stats.plusOneGuests.toString()],
-      ['Plus Two Guests', stats.plusTwoGuests.toString()],
-      ['Plus Three+ Guests', stats.plusThreeGuests.toString()],
-      ['Total Plus Guests', stats.totalPlusGuests.toString()],
-      ['Average Guests per QR Code', stats.averageGuestsPerQR.toString()],
-      ['QR Codes with Plus Guests', stats.uniqueQRsWithPlusGuests.toString()]
-    ];
-
-    const csvContent = attendeesData.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `event-report-plus-guests-${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    
-    toast({
-      title: "Enhanced Report Exported!",
-      description: "Event report with plus guest data has been downloaded as CSV",
-    });
+  const handleExportExcel = async () => {
+    try {
+      await exportReportsToExcel(attendees, checkinInstances);
+      toast({
+        title: "Excel Report Exported!",
+        description: "Professional multi-sheet report has been downloaded",
+      });
+    } catch (error) {
+      console.error('Excel export error:', error);
+      toast({
+        title: "Export Failed",
+        description: "There was an error generating the Excel report",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleExportPDF = () => {
@@ -334,11 +296,11 @@ export const ReportsView = ({ attendees, checkinInstances }: ReportsViewProps) =
         <CardContent>
           <div className="flex gap-4">
             <Button 
-              onClick={handleExportCSV}
+              onClick={handleExportExcel}
               className="bg-gradient-primary hover:shadow-glow transition-all duration-300"
             >
               <Download className="w-4 h-4 mr-2" />
-              Export to CSV
+              Export to Excel
             </Button>
             <Button 
               variant="outline"
