@@ -707,14 +707,19 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
       </div>
 
       {/* Success Dialog */}
-      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+      <Dialog open={showSuccessDialog} onOpenChange={(open) => {
+        setShowSuccessDialog(open);
+        if (!open) {
+          setProcessingQR(null);
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-success text-2xl justify-center">
               <UserCheck className="w-8 h-8" />
               Successfully Scanned!
             </DialogTitle>
-            <p className="sr-only">Attendee has been successfully checked in to the event</p>
+            <DialogDescription className="sr-only">Attendee has been successfully checked in to the event</DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
@@ -760,6 +765,8 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
               onClick={() => {
                 setShowSuccessDialog(false);
                 setSuccessData(null);
+                setProcessingQR(null);
+                stopScanning();
               }}
               variant="outline"
               className="w-full py-4"
