@@ -43,6 +43,8 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
   const DETECTION_THROTTLE_MS = 2000;
   const throttleUntilRef = useRef<number>(0);
   const lastDecodedRef = useRef<string | null>(null);
+  const sessionStartTimeRef = useRef<number>(0); // Track when scanner session starts
+  const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Safety timeout for processing state
   const { toast } = useToast();
   const { isMobile, isFullscreen, requestFullscreen, exitFullscreen, vibrate } = useMobileOptimizations();
 
@@ -51,6 +53,13 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
 
   const handleScanSuccess = async (decodedText: string) => {
     const now = Date.now();
+
+    // Session cooldown: Ignore scans within 1500ms of starting the scanner session
+    // This prevents cached/buffered QR codes from being processed
+    if (now - sessionStartTimeRef.current < 1500) {
+      console.log('Ignoring scan - session cooldown period');
+      return;
+    }
 
     // If a scan is already being processed, ignore this one
     if (isScanningLockRef.current) {
@@ -100,6 +109,16 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
     cooldownMapRef.current.set(decodedText, now);
     setProcessingQR(decodedText);
 
+    // Safety timeout: Clear processing state after 5 seconds if something goes wrong
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+    }
+    processingTimeoutRef.current = setTimeout(() => {
+      console.warn('Processing timeout reached - clearing processing state');
+      setProcessingQR(null);
+      isScanningLockRef.current = false;
+    }, 5000);
+
     // Immediately pause scanning to prevent multiple detections
     stopScanning({ preserveProcessing: true, preserveCooldown: true });
     
@@ -116,6 +135,12 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
     if (attendee) {
       try {
         const result = await onCheckIn(decodedText);
+        
+        // Clear processing timeout on success
+        if (processingTimeoutRef.current) {
+          clearTimeout(processingTimeoutRef.current);
+          processingTimeoutRef.current = null;
+        }
         
         if (result) {
           // Single success vibration
@@ -142,6 +167,11 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         }
       } catch (error) {
         console.error('Check-in error:', error);
+        // Clear processing timeout on error
+        if (processingTimeoutRef.current) {
+          clearTimeout(processingTimeoutRef.current);
+          processingTimeoutRef.current = null;
+        }
         if (isMobile) {
           vibrate([100, 100, 100]); // Error vibration pattern
         }
@@ -152,6 +182,11 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         }, 1000);
       }
     } else {
+      // Clear processing timeout for invalid QR
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
+        processingTimeoutRef.current = null;
+      }
       if (isMobile) {
         vibrate([100, 100, 100]); // Error vibration pattern
       }
@@ -237,9 +272,14 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
     // Reset scan guards when starting fresh
     isScanningLockRef.current = false;
     throttleUntilRef.current = 0;
-    lastDecodedRef.current = null;
     setProcessingQR(null);
     setScannerError("");
+    
+    // Clear processing timeout if any
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
     
     // Clear any existing scanner instance first
     if (scannerRef.current) {
@@ -250,6 +290,9 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         console.log("Error clearing previous scanner:", error);
       }
     }
+    
+    // Add 300ms delay to flush camera buffer from previous session
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     // Check if camera is available
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -274,6 +317,14 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
       return;
     }
 
+    // Set session start time for cooldown protection
+    sessionStartTimeRef.current = Date.now();
+    
+    // Delay clearing lastDecodedRef to maintain protection against previous QR code
+    setTimeout(() => {
+      lastDecodedRef.current = null;
+    }, 2000);
+    
     setIsScanning(true);
     
     try {
