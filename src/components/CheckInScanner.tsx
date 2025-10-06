@@ -82,6 +82,9 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
     cooldownMapRef.current.set(decodedText, now);
     setProcessingQR(decodedText);
 
+    // Immediately pause scanning to prevent multiple detections
+    stopScanning({ preserveProcessing: true, preserveCooldown: true });
+    
     // Clean up old entries (keep only last 50 entries to prevent memory bloat)
     if (cooldownMapRef.current.size > 50) {
       const entries = Array.from(cooldownMapRef.current.entries());
@@ -125,6 +128,12 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         if (isMobile) {
           vibrate([100, 100, 100]); // Error vibration pattern
         }
+        // Auto-restart scanning after error
+        setTimeout(() => {
+          setProcessingQR(null);
+          isScanningLockRef.current = false;
+          startScanning();
+        }, 1000);
       } finally {
         // Clear processing state after successful/failed check-in
         setTimeout(() => {
@@ -146,6 +155,8 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         setProcessingQR(null);
         // Release the lock after error
         isScanningLockRef.current = false;
+        // Auto-restart scanning after showing the error
+        startScanning();
       }, 1000);
     }
   };
@@ -265,7 +276,7 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
       scannerRef.current = new Html5QrcodeScanner(
         "qr-reader",
         {
-          fps: isMobile ? 15 : 10,
+          fps: isMobile ? 5 : 5,
           qrbox: isMobile 
             ? { width: Math.min(300, window.innerWidth - 40), height: Math.min(300, window.innerWidth - 40) }
             : { width: 250, height: 250 },
@@ -305,7 +316,13 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
     }
   };
 
-  const stopScanning = () => {
+  const stopScanning = (optionsOrEvent?: any) => {
+    // Normalize options when this is used as an onClick handler
+    const options: { preserveProcessing?: boolean; preserveCooldown?: boolean } | undefined =
+      optionsOrEvent && typeof optionsOrEvent === 'object' && 'preventDefault' in optionsOrEvent
+        ? undefined
+        : optionsOrEvent;
+
     // Release any scan locks
     isScanningLockRef.current = false;
     
@@ -319,15 +336,23 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         setIsScanning(false);
         setScannerError("");
         setIsTorchOn(false);
-        setProcessingQR(null);
-        // Clear cooldown map when stopping scanner
-        cooldownMapRef.current.clear();
+        if (!options?.preserveProcessing) {
+          setProcessingQR(null);
+        }
+        // Clear cooldown map when stopping scanner, unless preserved
+        if (!options?.preserveCooldown) {
+          cooldownMapRef.current.clear();
+        }
       }).catch((error) => {
         console.error("Error stopping scanner:", error);
         setIsScanning(false);
         setIsTorchOn(false);
-        setProcessingQR(null);
-        cooldownMapRef.current.clear();
+        if (!options?.preserveProcessing) {
+          setProcessingQR(null);
+        }
+        if (!options?.preserveCooldown) {
+          cooldownMapRef.current.clear();
+        }
       });
     }
   };
@@ -425,7 +450,7 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
                    )}
                    
                    {/* Processing indicator */}
-                   {processingQR && isScanning && (
+                   {processingQR && (
                      <div className="absolute inset-0 bg-primary/20 rounded-lg flex items-center justify-center">
                        <div className="bg-background/90 rounded-lg p-4 text-center">
                          <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
