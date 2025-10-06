@@ -29,6 +29,13 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
   const [walkInData, setWalkInData] = useState({ name: '', email: '', phone: '', company: '' });
   const [processingQR, setProcessingQR] = useState<string | null>(null);
   const [permissionState, setPermissionState] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('unknown');
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [successData, setSuccessData] = useState<{
+    name: string;
+    email: string;
+    guestType: string;
+    checkinNumber: number;
+  } | null>(null);
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const cooldownMapRef = useRef<Map<string, number>>(new Map());
   const { toast } = useToast();
@@ -73,31 +80,38 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
 
     const attendee = attendees.find(a => a.qrCode === decodedText);
     
-    // Mobile feedback
-    if (isMobile) {
-      vibrate([100, 50, 100]); // Success vibration pattern
-    }
-    
     if (attendee) {
       try {
         const result = await onCheckIn(decodedText);
         
         if (result) {
+          // Single success vibration
+          if (isMobile) {
+            vibrate([150]); // Single 150ms haptic feedback
+          }
+          
+          // Stop scanner and show success dialog
+          stopScanning();
+          
+          setSuccessData({
+            name: result.attendeeName,
+            email: attendee.email,
+            guestType: result.guestType,
+            checkinNumber: result.checkinNumber
+          });
+          
+          setShowSuccessDialog(true);
+          
           setLastScanned({
             ...attendee,
             guestType: result.guestType,
             checkinNumber: result.checkinNumber
           });
-          
-          // Success vibration for mobile
-          if (isMobile) {
-            vibrate([100]); // Success vibration pattern
-          }
         }
       } catch (error) {
         console.error('Check-in error:', error);
         if (isMobile) {
-          vibrate([200, 100, 200]); // Error vibration pattern
+          vibrate([100, 100, 100]); // Error vibration pattern
         }
       } finally {
         // Clear processing state after successful/failed check-in
@@ -105,7 +119,7 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
       }
     } else {
       if (isMobile) {
-        vibrate([200, 100, 200]); // Error vibration pattern
+        vibrate([100, 100, 100]); // Error vibration pattern
       }
       toast({
         title: "Invalid QR Code",
@@ -623,8 +637,70 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         )}
       </div>
 
-      {/* Last Scanned */}
-      {lastScanned && !isFullscreen && (
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-success text-2xl justify-center">
+              <UserCheck className="w-8 h-8" />
+              Successfully Scanned!
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Large success checkmark animation */}
+            <div className="flex justify-center">
+              <div className="w-24 h-24 rounded-full bg-success/20 flex items-center justify-center animate-in zoom-in duration-300">
+                <UserCheck className="w-16 h-16 text-success" />
+              </div>
+            </div>
+            
+            {/* Attendee details */}
+            {successData && (
+              <div className="text-center space-y-2">
+                <h3 className="text-xl font-bold">{successData.name}</h3>
+                <p className="text-muted-foreground">{successData.email}</p>
+                <Badge className="bg-success text-success-foreground text-base px-4 py-1">
+                  Check-in #{successData.checkinNumber}
+                </Badge>
+                <Badge variant="outline" className="text-base px-4 py-1 ml-2">
+                  {successData.guestType}
+                </Badge>
+              </div>
+            )}
+          </div>
+          
+          {/* Scan another button */}
+          <div className="space-y-2">
+            <Button 
+              onClick={() => {
+                setShowSuccessDialog(false);
+                setSuccessData(null);
+                // Restart scanner automatically
+                startScanning();
+              }}
+              className="w-full bg-gradient-primary hover:shadow-glow py-6 text-lg"
+            >
+              <Scan className="w-6 h-6 mr-2" />
+              Scan Another QR Code
+            </Button>
+            
+            <Button 
+              onClick={() => {
+                setShowSuccessDialog(false);
+                setSuccessData(null);
+              }}
+              variant="outline"
+              className="w-full py-4"
+            >
+              Done Scanning
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Last Scanned (Historical Reference) */}
+      {lastScanned && !isFullscreen && !showSuccessDialog && (
         <Card className="shadow-elegant border-success/50">
           <CardHeader>
             <CardTitle className={`flex items-center gap-2 text-success ${isMobile ? 'text-lg' : ''}`}>
@@ -648,7 +724,7 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
       )}
       
       {/* Mobile Quick Stats in Fullscreen */}
-      {isMobile && isFullscreen && lastScanned && (
+      {isMobile && isFullscreen && lastScanned && !showSuccessDialog && (
         <div className="fixed bottom-4 left-4 right-4 bg-card border border-success/50 rounded-lg p-4 shadow-lg">
           <div className="flex items-center justify-between">
             <div>
