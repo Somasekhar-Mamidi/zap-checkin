@@ -159,67 +159,88 @@ const handler = async (req: Request): Promise<Response> => {
       subject: personalizedTemplate.subject,
       html: `
         <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-          <title>${personalizedTemplate.headerTitle}</title>
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f9f9f9;">
-          <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
-            
-            <!-- Header Banner -->
-            <div style="text-align: center; padding: 0; margin: 0;">
-              <img src="https://wnlyhixhnqjyduqcwyep.supabase.co/storage/v1/object/public/qr-codes/email-banner.png" alt="GFF 2025 After Party" style="width: 100%; max-width: 600px; height: auto; display: block; margin: 0;" />
-            </div>
-            
-            <!-- Content -->
-            <div style="padding: 40px 30px;">
-              <h2 style="color: #052659; margin: 0 0 20px 0; font-size: 24px;">${personalizedTemplate.greeting}</h2>
-              
-              <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
-                ${personalizedTemplate.mainMessage.replace(/\n/g, '<br>')}
-              </p>
-              
-              <!-- QR Code -->
-              <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f8fafc; border-radius: 12px; border: 2px dashed #e5e7eb;">
-                <img src="${qrPublicUrl}" alt="Your Event QR Code" style="max-width: 250px; height: auto; border: 3px solid #052659; border-radius: 12px; box-shadow: 0 4px 8px rgba(5, 38, 89, 0.2); display: block; margin: 0 auto;" />
-              </div>
-              
-              <!-- QR Code Text -->
-              <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 30px 0; text-align: center;">
-                <p style="color: #052659; margin: 0 0 10px 0; font-size: 16px;">${personalizedTemplate.qrInstructions}</p>
-                <p style="background: #ffffff; padding: 12px 16px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 18px; font-weight: 600; color: #052659; margin: 0; border: 1px solid #e5e7eb; letter-spacing: 1px;">
-                  ${attendee.qrCode}
-                </p>
-              </div>
-              
-              <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 30px 0 0 0;">
-                ${personalizedTemplate.closingMessage.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}
-              </p>
-            </div>
-            
-            <!-- Footer -->
-            <div style="background-color: #f8fafc; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-              <p style="color: #6b7280; font-size: 14px; margin: 0;">
-                <!-- Best regards,<br> -->
-                <strong style="color: #052659;">${personalizedTemplate.senderName}</strong>
-              </p>
-            </div>
-            
-          </div>
-          
-          <!-- Email client compatibility styles -->
-          <style>
-            @media only screen and (max-width: 600px) {
-              .email-container { width: 100% !important; }
-              .email-content { padding: 20px !important; }
-            }
-          </style>
-          
-        </body>
-        </html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>${personalizedTemplate.headerTitle}</title>
+    <link href="https://fonts.googleapis.com/css?family=Segoe+UI" rel="stylesheet">
+    <style>
+        @media only screen and (max-width: 600px) {
+            .email-container { width: 100% !important; }
+        }
+    </style>
+</head>
+<body style="margin: 0; padding: 20px; background-color: #f9f9f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+    <center>
+        <div style="max-width: 600px; margin: 0 auto;">
+            <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
+                <tbody>
+                    <tr>
+                        <td align="center">
+                            <img src="https://wnlyhixhnqjyduqcwyep.supabase.co/storage/v1/object/public/qr-codes/email-banner.png" alt="GFF 2025 After Party" style="width: 100%; max-width: 600px; height: auto; display: block;" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 40px 30px;">
+                            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <h2 style="color: #052659; margin: 0 0 20px 0; font-size: 24px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">${personalizedTemplate.greeting}</h2>
+                                            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                                                ${personalizedTemplate.mainMessage.replace(/\n/g, '<br>')}
+                                            </p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="center" style="padding: 30px 0;">
+                                            <table border="0" cellpadding="20" cellspacing="0" role="presentation" style="background-color: #f8fafc; border-radius: 12px; border: 2px dashed #e5e7eb;">
+                                                <tr>
+                                                    <td align="center">
+                                                        <img src="${qrPublicUrl}" alt="Your Event QR Code" width="250" style="width: 250px; height: auto; border: 3px solid #052659; border-radius: 12px; box-shadow: 0 4px 8px rgba(5, 38, 89, 0.2); display: block;" />
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="center" style="padding: 30px 0;">
+                                            <table border="0" cellpadding="20" cellspacing="0" role="presentation" style="width:100%; background-color: #f3f4f6; border-radius: 8px; text-align: center;">
+                                                <tr>
+                                                    <td>
+                                                        <p style="color: #052659; margin: 0 0 10px 0; font-size: 16px;">${personalizedTemplate.qrInstructions}</p>
+                                                        <p style="background: #ffffff; padding: 12px 16px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 18px; font-weight: 600; color: #052659; margin: 0 auto; border: 1px solid #e5e7eb; letter-spacing: 1px; max-width: 80%;">
+                                                            ${attendee.qrCode}
+                                                        </p>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 30px 0 0 0;">
+                                                ${personalizedTemplate.closingMessage.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align="center" style="background-color: #f8fafc; padding: 30px; border-top: 1px solid #e5e7eb;">
+                            <strong style="color: #052659; font-size: 14px;">${personalizedTemplate.senderName}</strong>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        </center>
+</body>
+</html>
       `,
       attachments: [
         {
