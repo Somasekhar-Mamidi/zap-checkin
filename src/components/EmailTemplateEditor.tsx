@@ -29,7 +29,7 @@ const defaultTemplate: EmailTemplate = {
   mainMessage: "Here's your QR code for the event. Please save this image and present it at check-in.",
   qrInstructions: "Your unique QR code:",
   closingMessage: "We look forward to seeing you at the event!",
-  senderName: "Juspay",
+  senderName: "",
   headerTitle: "Your Event QR Code"
 };
 
@@ -83,12 +83,12 @@ export const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
           </p>
         </div>
         
-        <div style="background-color: #f8fafc; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+        ${template.senderName ? `<div style="background-color: #f8fafc; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
           <p style="color: #6b7280; font-size: 14px; margin: 0;">
             Best regards,<br>
             <strong style="color: #0099FF;">${template.senderName}</strong>
           </p>
-        </div>
+        </div>` : ''}
       </div>
     `;
   };

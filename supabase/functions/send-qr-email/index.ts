@@ -46,7 +46,7 @@ const handler = async (req: Request): Promise<Response> => {
       mainMessage: "Here's your QR code for the event. Please save this image and present it at check-in.",
       qrInstructions: "Your unique QR code:",
       closingMessage: "We look forward to seeing you at the event!",
-      senderName: "Juspay",
+      senderName: "",
       headerTitle: "Your Event QR Code"
     };
 
@@ -230,11 +230,11 @@ const handler = async (req: Request): Promise<Response> => {
                             </table>
                         </td>
                     </tr>
-                    <tr>
+                    ${personalizedTemplate.senderName ? `<tr>
                         <td align="center" style="background-color: #f8fafc; padding: 30px; border-top: 1px solid #e5e7eb;">
                             <strong style="color: #052659; font-size: 14px;">${personalizedTemplate.senderName}</strong>
                         </td>
-                    </tr>
+                    </tr>` : ''}
                 </tbody>
             </table>
         </div>
