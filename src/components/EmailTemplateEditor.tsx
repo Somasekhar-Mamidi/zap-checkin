@@ -29,7 +29,7 @@ const defaultTemplate: EmailTemplate = {
   mainMessage: "Here's your QR code for the event. Please save this image and present it at check-in.",
   qrInstructions: "Your unique QR code:",
   closingMessage: "We look forward to seeing you at the event!",
-  senderName: "Event Team",
+  senderName: "Juspay",
   headerTitle: "Your Event QR Code"
 };
 
@@ -215,7 +215,7 @@ export const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
                   id="senderName"
                   value={template.senderName}
                   onChange={(e) => handleFieldChange('senderName', e.target.value)}
-                  placeholder="Event Team"
+                  placeholder="Juspay"
                 />
               </div>
             </TabsContent>
