@@ -28,6 +28,7 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
   const [showWalkInForm, setShowWalkInForm] = useState(false);
   const [walkInData, setWalkInData] = useState({ name: '', email: '', phone: '', company: '' });
   const [processingQR, setProcessingQR] = useState<string | null>(null);
+  const [permissionState, setPermissionState] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('unknown');
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const cooldownMapRef = useRef<Map<string, number>>(new Map());
   const { toast } = useToast();
@@ -124,13 +125,39 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
 
   const requestCameraPermission = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      // Request back camera for mobile devices
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: isMobile ? "environment" : "user"
+        } 
+      });
       // Stop the stream immediately as we just needed to check permissions
       stream.getTracks().forEach(track => track.stop());
+      setPermissionState('granted');
+      setScannerError("");
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Camera permission denied:", error);
-      setScannerError("Camera permission denied. Please allow camera access and try again.");
+      setPermissionState('denied');
+      
+      // Set Android-specific error message with recovery steps
+      const isAndroid = /android/i.test(navigator.userAgent);
+      
+      if (isAndroid) {
+        setScannerError(
+          "Camera access blocked. To fix:\n" +
+          "1. Tap the lock icon (🔒) in your browser's address bar\n" +
+          "2. Tap 'Permissions' or 'Site settings'\n" +
+          "3. Find 'Camera' and select 'Allow'\n" +
+          "4. Reload this page and try again\n\n" +
+          "Or use the Manual Entry option below."
+        );
+      } else {
+        setScannerError(
+          "Camera permission denied. Please allow camera access in your browser settings and reload the page."
+        );
+      }
+      
       return false;
     }
   };
@@ -163,6 +190,17 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
       return;
     }
 
+    // Check permission state first
+    if (permissionState === 'denied') {
+      const isAndroid = /android/i.test(navigator.userAgent);
+      setScannerError(
+        isAndroid
+          ? "Camera access blocked. Tap the lock icon (🔒) in your browser's address bar → Permissions → Camera → Allow, then reload and try again."
+          : "Camera permission denied. Please allow camera access in your browser settings and reload the page."
+      );
+      return;
+    }
+
     // Request camera permission first
     const hasPermission = await requestCameraPermission();
     if (!hasPermission) {
@@ -185,6 +223,9 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
       // Stop the stream as html5-qrcode will handle it
       stream.getTracks().forEach(track => track.stop());
 
+      const Html5QrcodeScanner = (await import('html5-qrcode')).Html5QrcodeScanner;
+      const { Html5QrcodeScanType } = await import('html5-qrcode');
+      
       scannerRef.current = new Html5QrcodeScanner(
         "qr-reader",
         {
@@ -196,6 +237,8 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
           showTorchButtonIfSupported: true,
           showZoomSliderIfSupported: true,
           defaultZoomValueIfSupported: isMobile ? 1.5 : 2,
+          supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA, Html5QrcodeScanType.SCAN_TYPE_FILE],
+          rememberLastUsedCamera: true,
           videoConstraints: {
             facingMode: isMobile ? "environment" : "user"
           }
@@ -206,7 +249,13 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
       scannerRef.current.render(handleScanSuccess, (error) => {
         // Only show meaningful errors
         if (error.includes("Permission denied") || error.includes("NotAllowedError")) {
-          setScannerError("Camera permission denied. Please allow camera access in your browser settings.");
+          setPermissionState('denied');
+          const isAndroid = /android/i.test(navigator.userAgent);
+          setScannerError(
+            isAndroid
+              ? "Camera blocked. Fix: Tap lock icon (🔒) in address bar → Permissions → Camera → Allow → Reload page"
+              : "Camera permission denied. Allow camera access in browser settings and reload."
+          );
         } else if (error.includes("NotFoundError") || error.includes("No camera found")) {
           setScannerError("No camera found. Please ensure your device has a camera.");
         } else if (!error.includes("No QR code found") && !error.includes("QR code parse error")) {
@@ -348,18 +397,24 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
                  </div>
                 
                 {scannerError && (
-                  <Alert className="mb-4">
+                  <Alert variant="destructive" className="mb-4">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
+                    <AlertDescription className="whitespace-pre-line">
                       {scannerError}
-                      {scannerError.includes("permission") && (
-                        <div className="mt-2 text-sm">
-                          <p>To fix this:</p>
-                          <ul className="list-disc list-inside mt-1 space-y-1">
-                            <li>Click the camera icon in your browser's address bar</li>
-                            <li>Select "Allow" for camera access</li>
-                            <li>Refresh the page and try again</li>
-                          </ul>
+                      {permissionState === 'denied' && (
+                        <div className="mt-4">
+                          <Button
+                            onClick={async () => {
+                              setScannerError("");
+                              setPermissionState('unknown');
+                              await requestCameraPermission();
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="bg-background"
+                          >
+                            Retry Permission
+                          </Button>
                         </div>
                       )}
                     </AlertDescription>
@@ -407,21 +462,21 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
                     </Button>
                   )}
                   
-                  {!isScanning && !isMobile && (
+                  {!isScanning && isMobile && (
                     <Button
                       onClick={requestCameraPermission}
                       variant="outline"
-                      className="text-sm"
+                      className="py-4 text-lg"
                     >
-                      <AlertCircle className="w-4 h-4 mr-2" />
-                      Request Camera Permissions
+                      <AlertCircle className="w-6 h-6 mr-2" />
+                      Request Camera Permission
                     </Button>
                   )}
                 </div>
                 
                 {!isScanning && (
                   <p className="text-xs text-muted-foreground mt-2">
-                    Having trouble? Try the manual entry option below
+                    Having trouble? Use the "Scan from Image" button in the scanner or try manual entry below
                   </p>
                 )}
               </div>
