@@ -37,6 +37,7 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
     checkinNumber: number;
   } | null>(null);
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const isScanningLockRef = useRef<boolean>(false);
   const cooldownMapRef = useRef<Map<string, number>>(new Map());
   const { toast } = useToast();
   const { isMobile, isFullscreen, requestFullscreen, exitFullscreen, vibrate } = useMobileOptimizations();
@@ -45,6 +46,15 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
   const COOLDOWN_PERIOD = 3000;
 
   const handleScanSuccess = async (decodedText: string) => {
+    // IMMEDIATE LOCK: If already processing a scan, ignore this one
+    if (isScanningLockRef.current) {
+      console.log('Scan already in progress, ignoring duplicate scan');
+      return;
+    }
+    
+    // Set the lock immediately
+    isScanningLockRef.current = true;
+    
     const now = Date.now();
     const lastScanTime = cooldownMapRef.current.get(decodedText);
 
@@ -63,6 +73,8 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         // Clear processing state after a short delay
         setTimeout(() => setProcessingQR(null), 1500);
       }
+      // Release the lock before returning
+      isScanningLockRef.current = false;
       return;
     }
 
@@ -115,7 +127,11 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         }
       } finally {
         // Clear processing state after successful/failed check-in
-        setTimeout(() => setProcessingQR(null), 1000);
+        setTimeout(() => {
+          setProcessingQR(null);
+          // Release the scan lock after processing
+          isScanningLockRef.current = false;
+        }, 1000);
       }
     } else {
       if (isMobile) {
@@ -126,7 +142,11 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         description: "This QR code is not registered for this event",
         variant: "destructive"
       });
-      setTimeout(() => setProcessingQR(null), 1000);
+      setTimeout(() => {
+        setProcessingQR(null);
+        // Release the lock after error
+        isScanningLockRef.current = false;
+      }, 1000);
     }
   };
 
@@ -196,6 +216,8 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
   };
 
   const startScanning = async () => {
+    // Reset scan lock when starting fresh
+    isScanningLockRef.current = false;
     setScannerError("");
     
     // Check if camera is available
@@ -284,6 +306,9 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
   };
 
   const stopScanning = () => {
+    // Release any scan locks
+    isScanningLockRef.current = false;
+    
     if (currentStream) {
       currentStream.getTracks().forEach(track => track.stop());
       setCurrentStream(null);
