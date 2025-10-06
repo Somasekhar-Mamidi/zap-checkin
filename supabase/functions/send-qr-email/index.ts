@@ -179,7 +179,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <tbody>
                     <tr>
                         <td align="center">
-                            <img src="https://wnlyhixhnqjyduqcwyep.supabase.co/storage/v1/object/public/qr-codes/email-banner.png" alt="GFF 2025 After Party" style="width: 100%; max-width: 600px; height: auto; display: block;" />
+                            <img src="https://dth95m2xtyv8v.cloudfront.net/tesseract/assets/hyper-checkout/gffinviteheader.png" alt="GFF 2025 After Party" style="width: 100%; max-width: 600px; height: auto; display: block;" />
                         </td>
                     </tr>
                     <tr>
