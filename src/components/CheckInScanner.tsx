@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Scan, Camera, CameraOff, UserCheck, AlertCircle, Maximize, Minimize, Flashlight, FlashlightOff, UserPlus } from "lucide-react";
 import { Html5QrcodeScanner } from "html5-qrcode";
@@ -105,8 +105,7 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
             vibrate([150]); // Single 150ms haptic feedback
           }
           
-          // Stop scanner and show success dialog
-          stopScanning();
+          // Scanner already stopped at line 86, show success dialog
           
           setSuccessData({
             name: result.attendeeName,
@@ -131,15 +130,7 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         // Auto-restart scanning after error
         setTimeout(() => {
           setProcessingQR(null);
-          isScanningLockRef.current = false;
           startScanning();
-        }, 1000);
-      } finally {
-        // Clear processing state after successful/failed check-in
-        setTimeout(() => {
-          setProcessingQR(null);
-          // Release the scan lock after processing
-          isScanningLockRef.current = false;
         }, 1000);
       }
     } else {
@@ -153,8 +144,6 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
       });
       setTimeout(() => {
         setProcessingQR(null);
-        // Release the lock after error
-        isScanningLockRef.current = false;
         // Auto-restart scanning after showing the error
         startScanning();
       }, 1000);
@@ -230,6 +219,16 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
     // Reset scan lock when starting fresh
     isScanningLockRef.current = false;
     setScannerError("");
+    
+    // Clear any existing scanner instance first
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.clear();
+        scannerRef.current = null;
+      } catch (error) {
+        console.log("Error clearing previous scanner:", error);
+      }
+    }
     
     // Check if camera is available
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -323,8 +322,7 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         ? undefined
         : optionsOrEvent;
 
-    // Release any scan locks
-    isScanningLockRef.current = false;
+    // Do NOT release scan lock here - only release when startScanning() is called
     
     if (currentStream) {
       currentStream.getTracks().forEach(track => track.stop());
@@ -695,6 +693,7 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
               <UserCheck className="w-8 h-8" />
               Successfully Scanned!
             </DialogTitle>
+            <p className="sr-only">Attendee has been successfully checked in to the event</p>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
