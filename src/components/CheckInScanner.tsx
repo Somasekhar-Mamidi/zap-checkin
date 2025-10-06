@@ -238,6 +238,7 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
     isScanningLockRef.current = false;
     throttleUntilRef.current = 0;
     lastDecodedRef.current = null;
+    setProcessingQR(null);
     setScannerError("");
     
     // Clear any existing scanner instance first
@@ -745,6 +746,7 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
               onClick={() => {
                 setShowSuccessDialog(false);
                 setSuccessData(null);
+                setProcessingQR(null);
                 // Restart scanner automatically
                 startScanning();
               }}
