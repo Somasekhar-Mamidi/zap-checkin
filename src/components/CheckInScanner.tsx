@@ -39,6 +39,10 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const isScanningLockRef = useRef<boolean>(false);
   const cooldownMapRef = useRef<Map<string, number>>(new Map());
+  // Strict detection throttle to prevent duplicate callbacks within a short window
+  const DETECTION_THROTTLE_MS = 2000;
+  const throttleUntilRef = useRef<number>(0);
+  const lastDecodedRef = useRef<string | null>(null);
   const { toast } = useToast();
   const { isMobile, isFullscreen, requestFullscreen, exitFullscreen, vibrate } = useMobileOptimizations();
 
@@ -46,16 +50,25 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
   const COOLDOWN_PERIOD = 3000;
 
   const handleScanSuccess = async (decodedText: string) => {
-    // IMMEDIATE LOCK: If already processing a scan, ignore this one
+    const now = Date.now();
+
+    // If a scan is already being processed, ignore this one
     if (isScanningLockRef.current) {
-      console.log('Scan already in progress, ignoring duplicate scan');
       return;
     }
-    
-    // Set the lock immediately
-    isScanningLockRef.current = true;
-    
-    const now = Date.now();
+
+    // Throttle rapid successive detections
+    if (now < throttleUntilRef.current) {
+      return;
+    }
+
+    // Ignore same code seen immediately before in this session
+    if (decodedText === lastDecodedRef.current) {
+      // small re-throttle to avoid bursts
+      throttleUntilRef.current = now + 800;
+      return;
+    }
+
     const lastScanTime = cooldownMapRef.current.get(decodedText);
 
     // Check if this QR code was scanned recently (within cooldown period)
@@ -73,10 +86,15 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
         // Clear processing state after a short delay
         setTimeout(() => setProcessingQR(null), 1500);
       }
-      // Release the lock before returning
-      isScanningLockRef.current = false;
+      // Briefly throttle to avoid rapid duplicate callbacks
+      throttleUntilRef.current = now + 800;
       return;
     }
+
+    // Set session throttle/dedupe and acquire processing lock
+    throttleUntilRef.current = now + DETECTION_THROTTLE_MS;
+    lastDecodedRef.current = decodedText;
+    isScanningLockRef.current = true;
 
     // Set cooldown for this QR code
     cooldownMapRef.current.set(decodedText, now);
@@ -216,8 +234,10 @@ export const CheckInScanner = ({ attendees, onCheckIn, onAddWalkIn }: CheckInSca
   };
 
   const startScanning = async () => {
-    // Reset scan lock when starting fresh
+    // Reset scan guards when starting fresh
     isScanningLockRef.current = false;
+    throttleUntilRef.current = 0;
+    lastDecodedRef.current = null;
     setScannerError("");
     
     // Clear any existing scanner instance first
