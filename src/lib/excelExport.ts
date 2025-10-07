@@ -78,7 +78,7 @@ const createMainSheet = async (
   const worksheet = workbook.addWorksheet('Attendee QR Codes');
 
   // Set up headers
-  const headers = ['Name', 'Email ID', 'QR Code'];
+  const headers = ['Name', 'Email ID', 'Company', 'QR Code'];
 
   // Add headers
   worksheet.addRow(headers);
@@ -93,7 +93,8 @@ const createMainSheet = async (
   // Set column widths
   worksheet.getColumn(1).width = 30; // Name
   worksheet.getColumn(2).width = 40; // Email
-  worksheet.getColumn(3).width = 18; // QR Code
+  worksheet.getColumn(3).width = 25; // Company
+  worksheet.getColumn(4).width = 18; // QR Code
 
   // Add data rows with QR images
   for (let i = 0; i < attendees.length; i++) {
@@ -104,6 +105,7 @@ const createMainSheet = async (
     const row = worksheet.addRow([
       attendee.name,
       attendee.email,
+      attendee.company || 'N/A',
       '' // QR Code column (image will be placed here)
     ]);
 
@@ -112,7 +114,7 @@ const createMainSheet = async (
     row.height = 120; // Fixed height for QR code cell
     
     // Center align the QR code column
-    const qrCell = worksheet.getCell(rowNumber, 3);
+    const qrCell = worksheet.getCell(rowNumber, 4);
     qrCell.alignment = { vertical: 'middle', horizontal: 'center' };
 
     // Add QR code image if available
@@ -132,9 +134,9 @@ const createMainSheet = async (
           extension: 'png',
         });
 
-        // Add image to worksheet - positioned in column 3 (0-indexed = 2)
+        // Add image to worksheet - positioned in column 4 (0-indexed = 3)
         worksheet.addImage(imageId, {
-          tl: { col: 2, row: rowNumber - 1 }, // Column 3, perfectly aligned
+          tl: { col: 3, row: rowNumber - 1 }, // Column 4, perfectly aligned
           ext: { width: 110, height: 110 } // Fixed size to fit in 120px cell
         });
       } catch (error) {
@@ -145,7 +147,7 @@ const createMainSheet = async (
 
   // Add borders to all cells
   const totalRows = attendees.length + 1;
-  const totalCols = 3; // Name, Email ID, QR Code
+  const totalCols = 4; // Name, Email ID, Company, QR Code
   
   for (let row = 1; row <= totalRows; row++) {
     for (let col = 1; col <= totalCols; col++) {
@@ -169,7 +171,7 @@ const createQROnlySheet = async (
   const worksheet = workbook.addWorksheet('QR Codes Only');
 
   // Set up headers
-  const headers = ['Name', 'QR Code Text', 'QR Code Image'];
+  const headers = ['Name', 'Company', 'QR Code Text', 'QR Code Image'];
   worksheet.addRow(headers);
 
   // Style headers
@@ -181,8 +183,9 @@ const createQROnlySheet = async (
 
   // Set column widths for larger QR images
   worksheet.getColumn(1).width = 25; // Name
-  worksheet.getColumn(2).width = 20; // QR Code Text
-  worksheet.getColumn(3).width = 20; // QR Code Image
+  worksheet.getColumn(2).width = 25; // Company
+  worksheet.getColumn(3).width = 20; // QR Code Text
+  worksheet.getColumn(4).width = 20; // QR Code Image
 
   // Add data rows with larger QR images
   for (let i = 0; i < attendees.length; i++) {
@@ -193,6 +196,7 @@ const createQROnlySheet = async (
       // Add text data
       const row = worksheet.addRow([
         attendee.name,
+        attendee.company || 'N/A',
         attendee.qrCode || 'N/A',
         '' // Empty cell for QR image
       ]);
@@ -218,7 +222,7 @@ const createQROnlySheet = async (
 
         // Add larger image to worksheet
         worksheet.addImage(imageId, {
-          tl: { col: 2, row: rowNumber - 1 }, // Top-left position (0-indexed)
+          tl: { col: 3, row: rowNumber - 1 }, // Top-left position (0-indexed)
           ext: { width: 100, height: 100 } // Larger size for QR-only sheet
         });
       } catch (error) {
@@ -229,7 +233,7 @@ const createQROnlySheet = async (
 
   // Add borders
   const totalRows = attendees.filter(a => qrImages[a.id]).length + 1;
-  const totalCols = 3;
+  const totalCols = 4;
   
   for (let row = 1; row <= totalRows; row++) {
     for (let col = 1; col <= totalCols; col++) {
