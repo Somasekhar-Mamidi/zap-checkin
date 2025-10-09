@@ -130,7 +130,7 @@ const createMainSheet = async (
         
         // Add image to workbook
         const imageId = workbook.addImage({
-          buffer: imageBuffer,
+          buffer: imageBuffer as any,
           extension: 'png',
         });
 
@@ -216,7 +216,7 @@ const createQROnlySheet = async (
         
         // Add image to workbook
         const imageId = workbook.addImage({
-          buffer: imageBuffer,
+          buffer: imageBuffer as any,
           extension: 'png',
         });
 

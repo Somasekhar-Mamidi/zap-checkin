@@ -198,7 +198,16 @@ export const ReportsView = ({ attendees, checkinInstances }: ReportsViewProps) =
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">{stats.walkIn}</div>
-            <p className="text-xs text-muted-foreground">{stats.walkInCheckedIn} checked in ({stats.walkInRate}%)</p>
+            <div className="text-xs text-muted-foreground mt-2 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-green-600">✓</span>
+                <span>Checked In: {stats.walkInCheckedIn} ({stats.walkInRate}%)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-amber-600">⏳</span>
+                <span>Pending: {stats.walkIn - stats.walkInCheckedIn} ({100 - stats.walkInRate}%)</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
